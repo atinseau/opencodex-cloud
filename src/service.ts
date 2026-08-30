@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { ClientPaths } from "./paths";
 import { SERVICE_NAME, SYNC_INTERVAL_SECONDS } from "./constants";
@@ -157,6 +157,31 @@ export async function installBackgroundSync(
     await writePrivateFile(paths.systemdTimerFile, renderSystemdTimer());
     await run([systemctl, "--user", "daemon-reload"]);
     await run([systemctl, "--user", "enable", "--now", `${SERVICE_NAME}.timer`]);
+    return "systemd";
+  }
+
+  throw new Error(`Système non pris en charge pour l’instant : ${platform}`);
+}
+
+export async function uninstallBackgroundSync(
+  paths: ClientPaths,
+  platform: NodeJS.Platform = process.platform,
+): Promise<ServiceKind> {
+  if (platform === "darwin") {
+    const uid = process.getuid?.();
+    if (uid === undefined) throw new Error("Impossible de déterminer l’utilisateur launchd.");
+    await run(["/bin/launchctl", "bootout", `gui/${uid}/com.opencodex-cloud.catalog-sync`], true);
+    await rm(paths.launchAgentFile, { force: true });
+    return "launchd";
+  }
+
+  if (platform === "linux") {
+    const systemctl = Bun.which("systemctl");
+    if (!systemctl) throw new Error("systemd utilisateur est requis pour désactiver la synchronisation.");
+    await run([systemctl, "--user", "disable", "--now", `${SERVICE_NAME}.timer`], true);
+    await rm(paths.systemdServiceFile, { force: true });
+    await rm(paths.systemdTimerFile, { force: true });
+    await run([systemctl, "--user", "daemon-reload"]);
     return "systemd";
   }
 

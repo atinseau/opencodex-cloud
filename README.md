@@ -38,6 +38,17 @@ automatique. Ensuite, l’utilisateur lance simplement :
 codex
 ```
 
+Si Codex utilise déjà un OpenCodex local, l’assistant le détecte et demande une confirmation avant
+le basculement. Le processus local n’est ni arrêté ni modifié : seul le routage racine de Codex passe
+temporairement sur le Cloud. Pour restaurer le provider et le catalogue précédents :
+
+```bash
+opencodex-cloud disconnect
+```
+
+La restauration est ciblée et conserve les autres changements effectués entre-temps dans
+`config.toml`. Une nouvelle commande `connect` permet ensuite de reprendre la main côté Cloud.
+
 Le catalogue local est vérifié toutes les 30 secondes avec ETag. Une mise à jour est écrite
 atomiquement ; une réponse invalide ne remplace jamais la dernière version valide. Codex charge ce
 catalogue au démarrage, donc un processus déjà ouvert voit les nouveaux modèles à son prochain
@@ -49,9 +60,11 @@ Pour vérifier toute la chaîne après installation :
 opencodex-cloud doctor
 ```
 
-Le doctor contrôle la configuration locale, les permissions de la clé, le catalogue, le service de
-synchronisation, `/healthz`, `/readyz`, l’authentification data-plane et la connexion bearer utilisée
-par Codex sur `/v1/models`. Il ne lance aucune inférence payante.
+Le doctor indique qui a réellement la main — Cloud, OpenCodex local ou autre provider — et détecte
+un proxy local actif mais inutilisé. En mode Cloud, il contrôle aussi la configuration locale, les
+permissions de la clé, le catalogue, le service de synchronisation, `/healthz`, `/readyz`,
+l’authentification data-plane et la connexion bearer utilisée par Codex sur `/v1/models`. Il ne lance
+aucune inférence payante.
 
 Voir [Installation du client](docs/client-installation.md) pour le fonctionnement, les chemins et le
 dépannage.

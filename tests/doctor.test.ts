@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { diagnose, type DoctorDependencies } from "../src/doctor";
 import { createConnection, saveConnection, saveCredential } from "../src/connection";
 import { resolvePaths } from "../src/paths";
-import { installCodexConfig } from "../src/codex-config";
+import { beginCloudRoutingSwitch, installCodexConfig } from "../src/codex-config";
 import { writePrivateFile } from "../src/files";
 
 const temporaryDirectories: string[] = [];
@@ -29,6 +29,7 @@ async function installedClient() {
   await saveCredential(paths, "machine-secret");
   await writePrivateFile(paths.catalogFile, JSON.stringify({ models: [{ slug: "openai/gpt-test" }] }));
   await writePrivateFile(paths.stateFile, JSON.stringify({ lastCheckedAt: "2026-08-30T11:59:45.000Z" }));
+  await beginCloudRoutingSwitch(paths);
   await installCodexConfig(paths, connection, "/bin/sh");
   return { paths, connection };
 }
@@ -38,6 +39,7 @@ function healthyDependencies(requests: Request[]): DoctorDependencies {
     now: () => now,
     findCodex: () => "/usr/local/bin/codex",
     inspectService: async () => "LaunchAgent actif",
+    probeLocal: async () => ({ running: false }),
     fetcher: async (input, init) => {
       const request = new Request(input, init);
       requests.push(request);
@@ -85,5 +87,37 @@ describe("diagnose", () => {
     expect(report.ok).toBeFalse();
     expect(report.checks.find((check) => check.id === "remote-catalog")?.status).toBe("fail");
     expect(report.checks.find((check) => check.id === "models-api")?.status).toBe("fail");
+  });
+
+  test("signale un proxy local actif mais non utilisé en mode Cloud", async () => {
+    const { paths } = await installedClient();
+    const dependencies = healthyDependencies([]);
+    dependencies.probeLocal = async () => ({ running: true, endpoint: "http://127.0.0.1:10100" });
+
+    const report = await diagnose(paths, dependencies);
+    expect(report.ok).toBeTrue();
+    expect(report.mode).toBe("cloud");
+    expect(report.checks.find((check) => check.id === "local-proxy")?.status).toBe("warn");
+    expect(report.checks.find((check) => check.id === "local-proxy")?.detail).toContain("non utilisé");
+  });
+
+  test("valide le mode local et ne contacte pas le serveur Cloud après disconnect", async () => {
+    const root = await mkdtemp(join(tmpdir(), "opencodex-cloud-local-doctor-"));
+    temporaryDirectories.push(root);
+    const paths = resolvePaths({ HOME: root, CODEX_HOME: join(root, "codex") });
+    await writePrivateFile(paths.codexConfigFile, [
+      'model_provider = "openai"',
+      'openai_base_url = "http://127.0.0.1:10100/v1"',
+    ].join("\n"));
+    const requests: Request[] = [];
+    const dependencies = healthyDependencies(requests);
+    dependencies.probeLocal = async () => ({ running: true, endpoint: "http://127.0.0.1:10100" });
+
+    const report = await diagnose(paths, dependencies);
+    expect(report.ok).toBeTrue();
+    expect(report.mode).toBe("opencodex-local");
+    expect(report.checks.find((check) => check.id === "local-proxy")?.status).toBe("pass");
+    expect(report.checks.find((check) => check.id === "proxy-health")?.status).toBe("skip");
+    expect(requests).toHaveLength(0);
   });
 });

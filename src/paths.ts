@@ -6,6 +6,7 @@ export interface ClientPaths {
   connectionFile: string;
   credentialFile: string;
   stateFile: string;
+  routingStateFile: string;
   logDir: string;
   codexHome: string;
   codexConfigFile: string;
@@ -30,6 +31,7 @@ export function resolvePaths(env: NodeJS.ProcessEnv = process.env): ClientPaths 
     connectionFile: join(configDir, "connection.json"),
     credentialFile: join(configDir, "api-key"),
     stateFile: join(configDir, "sync-state.json"),
+    routingStateFile: join(configDir, "routing-state.json"),
     logDir: join(stateRoot, "opencodex-cloud"),
     codexHome,
     codexConfigFile: join(codexHome, "config.toml"),

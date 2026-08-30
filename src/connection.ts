@@ -8,6 +8,11 @@ export interface ConnectionConfig {
   installedAt: string;
 }
 
+export function isLoopbackServerUrl(input: string): boolean {
+  const hostname = new URL(input).hostname.toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1";
+}
+
 export function normalizeServerUrl(input: string): string {
   const trimmed = input.trim();
   let url: URL;
@@ -17,10 +22,7 @@ export function normalizeServerUrl(input: string): string {
     throw new Error("URL invalide");
   }
 
-  const isLoopback = url.hostname === "localhost"
-    || url.hostname === "127.0.0.1"
-    || url.hostname === "[::1]"
-    || url.hostname === "::1";
+  const isLoopback = isLoopbackServerUrl(url.toString());
   if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) {
     throw new Error("HTTPS est obligatoire hors localhost");
   }

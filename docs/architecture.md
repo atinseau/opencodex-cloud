@@ -34,6 +34,12 @@ toutes les 30 secondes. Codex obtient son bearer token via `model_providers.open
 la clé n’est ni copiée dans `config.toml`, ni exportée globalement dans le shell, et l’utilisateur
 continue de lancer la commande standard `codex`.
 
+Le routage client forme un basculement réversible. `connect` capture uniquement les clés racine
+`model_provider` et `model_catalog_json` qu’il remplace, puis marque ses propres blocs. `disconnect`
+arrête la synchronisation et restaure ces fragments sans remplacer le reste du fichier. Un OpenCodex
+local éventuellement actif reste indépendant dans `~/.opencodex` et peut reprendre immédiatement la
+main.
+
 ## Choix de version
 
 L'image installe directement le package officiel `@bitkyc08/opencodex@2.36.0` avec Bun `1.4.0`.

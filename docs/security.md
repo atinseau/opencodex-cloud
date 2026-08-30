@@ -39,8 +39,9 @@ barrière équivalente plus simple à exploiter sur plusieurs machines.
 
 ## Sécurité du client
 
-- l’installateur refuse HTTP sauf pour `localhost` et refuse les URL avec identifiants, chemin,
-  paramètres ou fragment ;
+- l’assistant `connect` exige une origine distante HTTPS et refuse localhost pour empêcher un
+  basculement accidentel vers un proxy local ; le loopback n’est disponible qu’avec l’opt-in de
+  développement `OPENCODEX_CLOUD_ALLOW_LOOPBACK=1` ;
 - les téléchargements du binaire sont vérifiés avec le SHA-256 publié dans la release ;
 - la clé data-plane est stockée hors de `config.toml`, dans
   `~/.config/opencodex-cloud/api-key`, avec répertoire `0700` et fichier `0600` ;
@@ -48,7 +49,11 @@ barrière équivalente plus simple à exploiter sur plusieurs machines.
   globale ou d’un secret statique dans sa configuration ;
 - la synchronisation refuse les redirects, impose un timeout et une limite de 256 Mio, valide le JSON
   avant remplacement et conserve le dernier catalogue valide ;
-- launchd/systemd ne reçoit jamais la clé dans les arguments ni dans son fichier de service.
+- launchd/systemd ne reçoit jamais la clé dans les arguments ni dans son fichier de service ;
+- avant de remplacer un routage Codex existant, l’assistant affiche le provider, le catalogue et le
+  proxy local détectés puis exige une confirmation ;
+- l’état de restauration ne contient que les fragments de routage remplacés, est écrit en `0600`, et
+  `disconnect` ne restaure jamais aveuglément l’intégralité d’un ancien `config.toml`.
 
 Ces permissions protègent le secret contre les autres comptes locaux, pas contre un processus déjà
 compromis exécuté par le même utilisateur. La révocation d’une machine se fait en supprimant sa clé

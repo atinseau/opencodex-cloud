@@ -19,8 +19,14 @@ la séquence suivante :
 1. `GET /healthz` sans secret ;
 2. `GET /v1/catalog` avec `x-opencodex-api-key` ;
 3. écriture atomique du catalogue local ;
-4. sauvegarde unique du `config.toml` existant, puis ajout de la configuration gérée ;
-5. activation d’un LaunchAgent macOS ou d’un timer systemd utilisateur Linux.
+4. détection d’un routage ou proxy OpenCodex local et confirmation explicite du basculement ;
+5. enregistrement privé des seules valeurs racine qui seront remplacées, puis ajout de la
+   configuration gérée ;
+6. activation d’un LaunchAgent macOS ou d’un timer systemd utilisateur Linux.
+
+L’origine Cloud doit être distante et en HTTPS. Une origine loopback est refusée par l’assistant afin
+d’éviter qu’un proxy local soit pris pour le bastion. Elle n’est disponible que pour les tests
+explicites avec `OPENCODEX_CLOUD_ALLOW_LOOPBACK=1`.
 
 Aucun alias, shim ou remplacement de la commande Codex n’est installé. L’utilisateur lance toujours
 `codex`. L’authentification command-backed de Codex appelle silencieusement
@@ -37,6 +43,7 @@ isolé et sa configuration minimale ; les providers sont ensuite administrés su
 | `~/.config/opencodex-cloud/connection.json` | origine et endpoint catalogue | `0600` |
 | `~/.config/opencodex-cloud/api-key` | clé de la machine | `0600` |
 | `~/.config/opencodex-cloud/sync-state.json` | ETag et dates de synchronisation | `0600` |
+| `~/.config/opencodex-cloud/routing-state.json` | provider/catalogue restaurés par `disconnect` | `0600` |
 | `~/.codex/opencodex-cloud-catalog.json` | cache de modèles validé | `0600` |
 | `~/.codex/config.toml.opencodex-cloud.bak` | sauvegarde créée une seule fois | permissions utilisateur |
 
@@ -50,18 +57,26 @@ opencodex-cloud status
 opencodex-cloud sync
 opencodex-cloud doctor
 opencodex-cloud doctor --json
+opencodex-cloud disconnect
 ```
 
 `status` n’affiche jamais la clé. `sync` force une vérification immédiate ; une réponse `304` conserve
 le fichier tel quel. Les logs du service sont dans `~/.local/state/opencodex-cloud/` sur macOS ; sous
 Linux, ils sont disponibles dans le journal systemd utilisateur.
 
-`doctor` vérifie successivement Codex, la configuration cliente, la clé et ses permissions, le
-`config.toml`, le cache local, le timer, la fraîcheur de la synchronisation, `/healthz`, `/readyz`,
-`/v1/catalog` avec la clé dédiée et `/v1/models` avec le bearer réellement utilisé par Codex. Il ne
-contacte aucun provider et ne déclenche donc aucune requête modèle payante. `--json` rend le résultat
+`doctor` détermine d’abord le routage réellement actif. Il vérifie également le port OpenCodex local
+configuré, ou `127.0.0.1:10100` par défaut. En mode Cloud, un proxy local encore actif produit un
+avertissement sans bloquer ; une origine Cloud qui pointe vers localhost est un échec. Les contrôles
+Cloud couvrent ensuite la clé et ses permissions, le `config.toml`, le cache local, le timer, la
+fraîcheur de la synchronisation, `/healthz`, `/readyz`, `/v1/catalog` et `/v1/models`. Il ne contacte
+aucun provider et ne déclenche donc aucune requête modèle payante. `--json` rend le résultat
 exploitable par un script de support ou une supervision locale ; la clé n’apparaît jamais dans la
 sortie.
+
+`disconnect` arrête le LaunchAgent/timer Cloud, retire les blocs gérés et restaure uniquement le
+provider et le catalogue capturés avant `connect`. Les autres modifications de `config.toml` sont
+préservées. Le proxy OpenCodex local n’est jamais arrêté par le client. La configuration de connexion
+et la clé Cloud restent privées sur la machine pour permettre une reconnexion ultérieure.
 
 ## Publication des binaires
 
