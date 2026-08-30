@@ -17,6 +17,12 @@ ENV NODE_ENV=production \
     PORT=10100 \
     CI=true
 
+# The Bun base digest is immutable, but Debian security updates are not. Apply the
+# currently available fixes during every release build, then remove apt metadata.
+RUN apt-get update \
+    && apt-get upgrade --yes --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 # The versioned npm package is the official OpenCodex release and already contains the dashboard.
 # Its `bun` dependency exists for Node/npm installs; this image already provides the same Bun
 # runtime, so the duplicated glibc + musl binaries are removed after installation.
