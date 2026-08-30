@@ -5,12 +5,14 @@ services:
       args:
         BUN_VERSION: "1.4.0"
         OPENCODEX_VERSION: "2.36.0"
+        CODEX_VERSION: "0.151.0"
     restart: unless-stopped
     init: true
     environment:
       OPENCODEX_HOME: /var/lib/opencodex
       CODEX_HOME: /var/lib/opencodex/codex
       PORT: "10100"
+      CATALOG_SYNC_INTERVAL_SECONDS: ${CATALOG_SYNC_INTERVAL_SECONDS:-300}
       OPENCODEX_API_AUTH_TOKEN: ${OPENCODEX_API_AUTH_TOKEN:?required}
       OPENCODEX_ADMIN_AUTH_TOKEN: ${OPENCODEX_ADMIN_AUTH_TOKEN:?required}
       OPENCODEX_PUBLIC_ORIGIN: ${OPENCODEX_PUBLIC_ORIGIN:?required}

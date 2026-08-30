@@ -10,6 +10,10 @@ on:
         description: Exact OpenCodex npm version to validate
         required: false
         type: string
+      codex_version:
+        description: Exact Codex CLI npm version to validate
+        required: false
+        type: string
       publish:
         description: Publish the validated image to GHCR (manual recovery only)
         required: false
@@ -33,21 +37,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - id: version
-        name: Resolve the exact OpenCodex version
+        name: Resolve immutable dependency and image versions
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-          REQUESTED_VERSION: ${{ inputs.opencodex_version }}
+          REQUESTED_OPENCODEX_VERSION: ${{ inputs.opencodex_version }}
+          REQUESTED_CODEX_VERSION: ${{ inputs.codex_version }}
         run: |
           set -eu
-          version="${REQUESTED_VERSION:-}"
-          if [ -n "${RELEASE_TAG:-}" ]; then version="${RELEASE_TAG#v}"; fi
-          if [ -z "$version" ]; then
-            version="$(sed -n 's/^ARG OPENCODEX_VERSION=//p' Dockerfile)"
-          fi
-          case "$version" in
-            ''|*[!0-9A-Za-z.+-]*) echo "Invalid version: $version" >&2; exit 64 ;;
-          esac
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          opencodex="${REQUESTED_OPENCODEX_VERSION:-$(sed -n 's/^ARG OPENCODEX_VERSION=//p' Dockerfile)}"
+          codex="${REQUESTED_CODEX_VERSION:-$(sed -n 's/^ARG CODEX_VERSION=//p' Dockerfile)}"
+          image_tag="${RELEASE_TAG#v}"
+          if [ -z "$image_tag" ]; then image_tag="$opencodex"; fi
+          for value in "$opencodex" "$codex" "$image_tag"; do
+            case "$value" in
+              ''|*[!0-9A-Za-z.+-]*) echo "Invalid version: $value" >&2; exit 64 ;;
+            esac
+          done
+          echo "opencodex=$opencodex" >> "$GITHUB_OUTPUT"
+          echo "codex=$codex" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
 
       - name: Validate shell and Compose
         env:
@@ -56,6 +64,7 @@ jobs:
           OPENCODEX_PUBLIC_ORIGIN: https://ai.example.com
         run: |
           sh -n docker/entrypoint.sh
+          sh -n tests/container-smoke.sh
           docker compose -f compose.coolify.yaml config --quiet
 
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -64,11 +73,16 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
-          build-args: OPENCODEX_VERSION=${{ steps.version.outputs.version }}
+          build-args: |
+            OPENCODEX_VERSION=${{ steps.version.outputs.opencodex }}
+            CODEX_VERSION=${{ steps.version.outputs.codex }}
           load: true
           tags: opencodex-cloud:scan
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Verify the native and remote catalogs
+        run: sh tests/container-smoke.sh opencodex-cloud:scan "${{ steps.version.outputs.codex }}"
 
       - name: Scan image
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
@@ -96,16 +110,21 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
-          build-args: OPENCODEX_VERSION=${{ steps.version.outputs.version }}
+          build-args: |
+            OPENCODEX_VERSION=${{ steps.version.outputs.opencodex }}
+            CODEX_VERSION=${{ steps.version.outputs.codex }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.image_tag }}
+            ghcr.io/${{ github.repository }}:opencodex-${{ steps.version.outputs.opencodex }}-codex-${{ steps.version.outputs.codex }}
             ghcr.io/${{ github.repository }}:latest
           labels: |
-            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.version=${{ steps.version.outputs.image_tag }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+            io.opencodex-cloud.opencodex-version=${{ steps.version.outputs.opencodex }}
+            io.opencodex-cloud.codex-version=${{ steps.version.outputs.codex }}
           provenance: mode=max
           sbom: true
           cache-from: type=gha

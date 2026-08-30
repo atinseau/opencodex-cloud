@@ -19,10 +19,15 @@
 - volume dédié en écriture ;
 - nombre de processus borné ;
 - logs Docker rotatifs ;
-- source upstream et runtime épinglés ;
+- OpenCodex, Codex CLI et runtime Bun épinglés ;
 - images de base et frontend Docker épinglés par digest SHA-256 ;
 - dépendances de production seulement, scripts d'installation désactivés ;
 - aucun socket Docker monté.
+
+La réconciliation périodique utilise le management-plane uniquement par loopback. Elle envoie le
+token admin dans le header `Authorization`, jamais dans une URL ou une ligne de commande, applique
+un timeout de 30 secondes et interdit les intervalles inférieurs à 30 secondes. Une convergence déjà
+en cours bloque le lancement d'une seconde ; un échec conserve le dernier catalogue valide.
 
 ## Accès réseau recommandé
 

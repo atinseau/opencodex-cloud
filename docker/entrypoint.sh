@@ -69,4 +69,4 @@ fi
 
 chmod 0600 "$config_path"
 
-exec bun run /opt/bun-global/install/global/node_modules/@bitkyc08/opencodex/src/cli/index.ts start --port "$PORT"
+exec bun run /opt/opencodex-cloud/supervisor.ts

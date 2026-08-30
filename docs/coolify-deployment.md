@@ -10,25 +10,26 @@ openssl rand -base64 48
 ```
 
 Créer dans Coolify les variables `OPENCODEX_API_AUTH_TOKEN`,
-`OPENCODEX_ADMIN_AUTH_TOKEN`, `OPENCODEX_PUBLIC_ORIGIN` et `TZ`. L'origine doit être exacte, par
-exemple `https://ai.example.com`, sans slash final.
+`OPENCODEX_ADMIN_AUTH_TOKEN`, `OPENCODEX_PUBLIC_ORIGIN`, `CATALOG_SYNC_INTERVAL_SECONDS` et `TZ`.
+L'origine doit être exacte, par exemple `https://ai.example.com`, sans slash final. L'intervalle
+vaut `300` secondes par défaut, accepte `0` pour désactiver la réconciliation périodique et refuse
+une valeur active inférieure à 30 secondes.
 
 ## 2. Créer la ressource
 
 Créer une ressource Docker Compose depuis le dépôt et sélectionner `compose.coolify.yaml`. Associer
 le domaine HTTPS au service `opencodex`, port `10100`. Ne créer aucun mapping de port hôte.
 
-Le premier démarrage initialise seulement `config.json`; les redémarrages conservent le volume. Un
-changement ultérieur de `OPENCODEX_PUBLIC_ORIGIN` ne réécrit pas une configuration existante : mettre
-alors `corsAllowOrigins` à jour depuis le dashboard ou dans le volume pendant un arrêt contrôlé.
+Le premier démarrage initialise `config.json`, un profil Codex isolé et le catalogue matérialisé à
+partir du Codex CLI officiel. Les redémarrages conservent le volume. Un changement ultérieur de
+`OPENCODEX_PUBLIC_ORIGIN` ne réécrit pas une configuration existante : mettre alors
+`corsAllowOrigins` à jour depuis le dashboard ou dans le volume pendant un arrêt contrôlé.
 
 ## 3. Health checks
 
 - `/healthz` : liveness immédiate, utilisée par Docker et Coolify ;
-- `/readyz` : disponibilité après synchronisation, à surveiller séparément ; sur la release stable
-  `v2.36.0`, un premier boot cloud sans catalogue Codex local peut répondre `503 failed` alors que le
-  plan de données est opérationnel. Ne pas l'utiliser comme health check de redémarrage avant la
-  publication du mode hub upstream ;
+- `/readyz` : disponibilité après matérialisation et synchronisation du catalogue ; un `503` indique
+  désormais un véritable échec de convergence à diagnostiquer ;
 - `/v1/models` : test fonctionnel authentifié ;
 - `/v1/catalog` : catalogue authentifié consommable par les machines clientes.
 
@@ -43,33 +44,17 @@ d'environnement comme clé de secours et la faire tourner après l'enrôlement i
 
 ## 5. Configurer une machine Codex
 
-Copier `examples/codex-config.toml`, remplacer le domaine et le modèle, puis exporter sur la machine
-cliente sa clé propre. Ne pas copier un `model_catalog_json` provenant d'une autre machine : Codex
-accepte actuellement un chemin local, pas une URL distante.
+Lancer l'installateur depuis une machine où `gh` est authentifié :
 
 ```bash
-export OPENCODEX_API_AUTH_TOKEN='ocx_machine_key_here'
+gh api -H "Accept: application/vnd.github.raw+json" \
+  repos/atinseau/opencodex-cloud/contents/install.sh | sh
 ```
 
-Dans OpenCodex 2.36.0, télécharger le catalogue avec la même clé vers le `CODEX_HOME` de cette
-machine, puis ajouter localement `model_catalog_json` dans `~/.codex/config.toml` :
-
-```bash
-curl -fsS \
-  -H "x-opencodex-api-key: $OPENCODEX_API_AUTH_TOKEN" \
-  https://ai.example.com/v1/catalog \
-  -o "$HOME/.codex/opencodex-catalog.json"
-```
-
-```toml
-model_catalog_json = "/chemin/local/de/cette/machine/.codex/opencodex-catalog.json"
-```
-
-Le hub reste la source de vérité : ce fichier est uniquement un cache client à renouveler après un
-changement de catalogue. Quand la pile remote-hub d'OpenCodex sera publiée dans une release stable,
-la procédure deviendra `ocx connect` puis `ocx sync`; ces commandes téléchargent, valident et
-installent automatiquement le catalogue et son chemin local. Les PR upstream correspondantes sont
-encore ouvertes, donc l'image figée en 2.36.0 ne doit pas prétendre fournir cette automatisation.
+Le prompt demande l'origine HTTPS et une clé propre à cette machine. Il télécharge le catalogue,
+configure le provider Codex, garde la clé hors de `config.toml` et installe la synchronisation ETag
+toutes les 30 secondes. Le fichier local n'est qu'un cache ; OpenCodex Cloud reste la source de
+vérité. `opencodex-cloud disconnect` restaure le routage antérieur.
 
 ## 6. Sauvegarde
 

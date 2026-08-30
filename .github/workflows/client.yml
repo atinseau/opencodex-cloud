@@ -9,6 +9,7 @@ on:
       - "bun.lock"
       - "tsconfig.json"
       - "install.sh"
+      - "docker/supervisor.ts"
       - ".github/workflows/client.yml"
   release:
     types: [published]

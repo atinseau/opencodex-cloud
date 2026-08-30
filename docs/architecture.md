@@ -24,8 +24,16 @@ des providers et les jetons OAuth sont persistés dans le volume `opencodex-data
 Coolify est le seul composant exposé : le compose utilise `expose`, jamais `ports`.
 
 La release stable exécute encore une synchronisation de profil Codex local au démarrage. L'entrypoint
-crée donc un `CODEX_HOME` minimal et isolé dans le volume. Il satisfait ce contrat sans jamais monter
-ni modifier le profil Codex d'une machine cliente.
+crée donc un `CODEX_HOME` minimal et isolé dans le volume. Le Codex CLI officiel embarqué expose son
+catalogue natif avec `codex debug models --bundled` ; OpenCodex le fusionne avec la découverte live
+des providers et matérialise le résultat dans ce volume. Il n'existe aucune seed de modèles dans ce
+dépôt et le profil Codex d'une machine cliente n'est jamais monté dans le conteneur.
+
+Les routes de gestion des providers, modèles, aliases et comptes déclenchent la convergence native
+d'OpenCodex après chaque mutation. Un réconciliateur Bun appelle en plus `POST /api/sync` uniquement
+sur `127.0.0.1`, toutes les cinq minutes par défaut, afin de capter un changement survenu directement
+chez un provider. Le token d'administration reste dans l'environnement du processus et n'apparaît ni
+dans l'URL, ni dans les arguments, ni dans les logs. Les exécutions concurrentes sont coalescées.
 
 Sur chaque machine cliente, le binaire autonome `opencodex-cloud` utilise uniquement le plan de
 données : il lit `GET /v1/catalog` avec la clé de la machine, conserve un cache local atomique puis
@@ -42,8 +50,10 @@ main.
 
 ## Choix de version
 
-L'image installe directement le package officiel `@bitkyc08/opencodex@2.36.0` avec Bun `1.4.0`.
-Il n'y a ni clone Git ni compilation de l'application dans l'image. La route de lecture
+L'image installe directement `@bitkyc08/opencodex@2.36.0` et `@openai/codex@0.151.0` avec Bun
+`1.4.0`. Elle conserve uniquement le binaire Codex natif nécessaire au catalogue, sans ses outils
+agent/sandbox inutilisés par le proxy. Il n'y a ni clone Git ni compilation de l'application dans
+l'image. La route de lecture
 `GET /v1/catalog` est déjà présente dans `2.36.0`, indépendamment de la chaîne de pairing. L'upstream
 développe encore le vrai mode `hub/client` dans les PR #2771, #2772, #2776, #2777, #2781, #2786 et
 #2789. Elles ne sont pas encore toutes fusionnées au 30 août 2026. Nous n'en copions pas le protocole

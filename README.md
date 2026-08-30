@@ -7,6 +7,7 @@ puis connecter plusieurs machines à un endpoint unique.
 
 - upstream : [`lidge-jun/opencodex`](https://github.com/lidge-jun/opencodex) ;
 - package officiel épinglé : `@bitkyc08/opencodex@2.36.0` ;
+- catalogue natif épinglé : `@openai/codex@0.151.0` ;
 - runtime : Bun `1.4.0` ;
 - cible : Docker Compose / Coolify ;
 - exposition : HTTPS uniquement, sans port hôte publié ;
@@ -53,6 +54,12 @@ Le catalogue local est vérifié toutes les 30 secondes avec ETag. Une mise à j
 atomiquement ; une réponse invalide ne remplace jamais la dernière version valide. Codex charge ce
 catalogue au démarrage, donc un processus déjà ouvert voit les nouveaux modèles à son prochain
 lancement.
+
+Le serveur ne contient aucune liste de modèles maintenue à la main. OpenCodex matérialise son
+catalogue depuis le catalogue officiel du Codex CLI embarqué, puis le fusionne avec la découverte
+des providers, les aliases, les modèles activés et les droits des comptes connectés. Les mutations
+du dashboard convergent immédiatement ; une réconciliation interne toutes les cinq minutes couvre
+aussi les changements apparus directement chez un provider.
 
 Pour vérifier toute la chaîne après installation :
 
