@@ -1,0 +1,50 @@
+services:
+  opencodex:
+    build:
+      context: .
+      args:
+        BUN_VERSION: "1.4.0"
+        OPENCODEX_VERSION: "2.36.0"
+    restart: unless-stopped
+    init: true
+    environment:
+      OPENCODEX_HOME: /var/lib/opencodex
+      CODEX_HOME: /var/lib/opencodex/codex
+      PORT: "10100"
+      OPENCODEX_API_AUTH_TOKEN: ${OPENCODEX_API_AUTH_TOKEN:?required}
+      OPENCODEX_ADMIN_AUTH_TOKEN: ${OPENCODEX_ADMIN_AUTH_TOKEN:?required}
+      OPENCODEX_PUBLIC_ORIGIN: ${OPENCODEX_PUBLIC_ORIGIN:?required}
+      TZ: ${TZ:-Europe/Paris}
+    expose:
+      - "10100"
+    volumes:
+      - opencodex-data:/var/lib/opencodex
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    stop_grace_period: 20s
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - >-
+          const r=await fetch('http://127.0.0.1:10100/healthz',{signal:AbortSignal.timeout(4000)});
+          if(!r.ok)process.exit(1);const b=await r.json();if(b.service!=='opencodex')process.exit(1)
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  opencodex-data:

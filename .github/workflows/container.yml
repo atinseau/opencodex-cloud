@@ -1,0 +1,114 @@
+name: container
+
+on:
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      opencodex_version:
+        description: Exact OpenCodex npm version to validate
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-scan-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: version
+        name: Resolve the exact OpenCodex version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REQUESTED_VERSION: ${{ inputs.opencodex_version }}
+        run: |
+          set -eu
+          version="${REQUESTED_VERSION:-}"
+          if [ -n "${RELEASE_TAG:-}" ]; then version="${RELEASE_TAG#v}"; fi
+          if [ -z "$version" ]; then
+            version="$(sed -n 's/^ARG OPENCODEX_VERSION=//p' Dockerfile)"
+          fi
+          case "$version" in
+            ''|*[!0-9A-Za-z.+-]*) echo "Invalid version: $version" >&2; exit 64 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Validate shell and Compose
+        env:
+          OPENCODEX_API_AUTH_TOKEN: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          OPENCODEX_ADMIN_AUTH_TOKEN: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+          OPENCODEX_PUBLIC_ORIGIN: https://ai.example.com
+        run: |
+          sh -n docker/entrypoint.sh
+          docker compose -f compose.coolify.yaml config --quiet
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Build the release image locally
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          build-args: OPENCODEX_VERSION=${{ steps.version.outputs.version }}
+          load: true
+          tags: opencodex-cloud:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: opencodex-cloud:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Upload security report
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        with:
+          sarif_file: trivy-results.sarif
+
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        if: github.event_name == 'release'
+
+      - name: Log in to GHCR
+        if: github.event_name == 'release'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish immutable release image
+        if: github.event_name == 'release'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          build-args: OPENCODEX_VERSION=${{ steps.version.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+
