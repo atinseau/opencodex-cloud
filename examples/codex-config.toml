@@ -1,7 +1,10 @@
 # Root keys must stay before the first [table].
 model_provider = "opencodex"
 model = "anthropic/claude-opus-5"
-model_catalog_json = "/absolute/path/to/.codex/opencodex-catalog.json"
+
+# Do not set model_catalog_json here. The remote hub is the source of truth.
+# Codex still accepts only a local path for this key; OpenCodex `ocx connect` / `ocx sync`
+# will manage the per-machine cache path once the remote-hub release is published.
 
 [model_providers.opencodex]
 name = "OpenCodex Cloud"
@@ -9,4 +12,3 @@ base_url = "https://ai.example.com/v1"
 wire_api = "responses"
 requires_openai_auth = true
 env_key = "OPENCODEX_API_AUTH_TOKEN"
-

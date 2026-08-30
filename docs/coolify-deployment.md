@@ -44,13 +44,15 @@ d'environnement comme clé de secours et la faire tourner après l'enrôlement i
 ## 5. Configurer une machine Codex
 
 Copier `examples/codex-config.toml`, remplacer le domaine et le modèle, puis exporter sur la machine
-cliente sa clé propre :
+cliente sa clé propre. Ne pas copier un `model_catalog_json` provenant d'une autre machine : Codex
+accepte actuellement un chemin local, pas une URL distante.
 
 ```bash
 export OPENCODEX_API_AUTH_TOKEN='ocx_machine_key_here'
 ```
 
-Télécharger le catalogue avec la même clé :
+Dans OpenCodex 2.36.0, télécharger le catalogue avec la même clé vers le `CODEX_HOME` de cette
+machine, puis ajouter localement `model_catalog_json` dans `~/.codex/config.toml` :
 
 ```bash
 curl -fsS \
@@ -58,6 +60,16 @@ curl -fsS \
   https://ai.example.com/v1/catalog \
   -o "$HOME/.codex/opencodex-catalog.json"
 ```
+
+```toml
+model_catalog_json = "/chemin/local/de/cette/machine/.codex/opencodex-catalog.json"
+```
+
+Le hub reste la source de vérité : ce fichier est uniquement un cache client à renouveler après un
+changement de catalogue. Quand la pile remote-hub d'OpenCodex sera publiée dans une release stable,
+la procédure deviendra `ocx connect` puis `ocx sync`; ces commandes téléchargent, valident et
+installent automatiquement le catalogue et son chemin local. Les PR upstream correspondantes sont
+encore ouvertes, donc l'image figée en 2.36.0 ne doit pas prétendre fournir cette automatisation.
 
 ## 6. Sauvegarde
 
