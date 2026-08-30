@@ -26,6 +26,10 @@ Aucun alias, shim ou remplacement de la commande Codex n’est installé. L’ut
 `codex`. L’authentification command-backed de Codex appelle silencieusement
 `opencodex-cloud auth-token` et le catalogue est lu depuis son chemin local obligatoire.
 
+`opencodex init`/`ocx init` n’est pas lancé sur le client. Cette commande upstream initialise un proxy
+local, ce qui serait l’inverse de l’architecture recherchée. Le serveur Docker possède déjà son profil
+isolé et sa configuration minimale ; les providers sont ensuite administrés sur le serveur.
+
 ## Fichiers locaux
 
 | Fichier | Rôle | Permission |
@@ -44,11 +48,20 @@ Les répertoires sont créés en `0700`. `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `C
 ```bash
 opencodex-cloud status
 opencodex-cloud sync
+opencodex-cloud doctor
+opencodex-cloud doctor --json
 ```
 
 `status` n’affiche jamais la clé. `sync` force une vérification immédiate ; une réponse `304` conserve
 le fichier tel quel. Les logs du service sont dans `~/.local/state/opencodex-cloud/` sur macOS ; sous
 Linux, ils sont disponibles dans le journal systemd utilisateur.
+
+`doctor` vérifie successivement Codex, la configuration cliente, la clé et ses permissions, le
+`config.toml`, le cache local, le timer, la fraîcheur de la synchronisation, `/healthz`, `/readyz`,
+`/v1/catalog` avec la clé dédiée et `/v1/models` avec le bearer réellement utilisé par Codex. Il ne
+contacte aucun provider et ne déclenche donc aucune requête modèle payante. `--json` rend le résultat
+exploitable par un script de support ou une supervision locale ; la clé n’apparaît jamais dans la
+sortie.
 
 ## Publication des binaires
 

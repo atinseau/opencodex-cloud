@@ -15,6 +15,7 @@ import {
 } from "./connection";
 import { installCodexConfig } from "./codex-config";
 import { installBackgroundSync } from "./service";
+import { diagnose, type DoctorReport } from "./doctor";
 
 function abortIfCancelled<T>(value: T | symbol): T {
   if (p.isCancel(value)) {
@@ -122,6 +123,34 @@ async function status(): Promise<void> {
   }, null, 2));
 }
 
+function renderDoctor(report: DoctorReport): void {
+  p.intro("OpenCodex Cloud — doctor");
+  for (const check of report.checks) {
+    const message = `${check.label} — ${check.detail}`;
+    if (check.status === "pass") p.log.success(message);
+    else if (check.status === "warn") p.log.warn(message);
+    else if (check.status === "fail") p.log.error(message);
+    else p.log.info(`${check.label} — non testé (${check.detail})`);
+  }
+
+  const failures = report.checks.filter((check) => check.status === "fail").length;
+  const warnings = report.checks.filter((check) => check.status === "warn").length;
+  if (failures === 0) {
+    p.outro(warnings === 0
+      ? "Tout fonctionne. La machine peut utiliser codex."
+      : `Connexion fonctionnelle avec ${warnings} avertissement(s).`);
+  } else {
+    p.outro(`${failures} contrôle(s) en échec.`);
+  }
+}
+
+async function doctor(json: boolean): Promise<void> {
+  const report = await diagnose(resolvePaths());
+  if (json) console.log(JSON.stringify(report, null, 2));
+  else renderDoctor(report);
+  if (!report.ok) process.exitCode = 1;
+}
+
 function help(): void {
   console.log(`opencodex-cloud ${CLIENT_VERSION}
 
@@ -129,6 +158,7 @@ Usage:
   opencodex-cloud connect      Connecter cette machine (défaut)
   opencodex-cloud sync         Synchroniser maintenant
   opencodex-cloud status       Afficher l’état local
+  opencodex-cloud doctor       Vérifier toute la connexion client → proxy
   opencodex-cloud auth-token   Fournir le token à Codex
   opencodex-cloud --version    Afficher la version
 `);
@@ -139,6 +169,7 @@ async function main(): Promise<void> {
   if (command === "connect") return connect();
   if (command === "sync") return sync(process.argv.includes("--quiet"));
   if (command === "status") return status();
+  if (command === "doctor") return doctor(process.argv.includes("--json"));
   if (command === "auth-token") {
     process.stdout.write(`${await readCredential(resolvePaths())}\n`);
     return;

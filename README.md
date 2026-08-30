@@ -27,6 +27,10 @@ L’assistant [Clack](https://bomb.sh/docs/clack/basics/getting-started/) demand
 1. l’adresse HTTPS du serveur ;
 2. la clé API dédiée à cette machine.
 
+Il ne faut lancer ni `opencodex init` ni `ocx init` sur la machine cliente : ces commandes préparent
+un proxy OpenCodex local. Le conteneur cloud est initialisé par son entrypoint et le client est
+configuré directement par cet installateur.
+
 Il teste le serveur et la clé, télécharge le catalogue, configure Codex puis active la synchronisation
 automatique. Ensuite, l’utilisateur lance simplement :
 
@@ -38,6 +42,16 @@ Le catalogue local est vérifié toutes les 30 secondes avec ETag. Une mise à j
 atomiquement ; une réponse invalide ne remplace jamais la dernière version valide. Codex charge ce
 catalogue au démarrage, donc un processus déjà ouvert voit les nouveaux modèles à son prochain
 lancement.
+
+Pour vérifier toute la chaîne après installation :
+
+```bash
+opencodex-cloud doctor
+```
+
+Le doctor contrôle la configuration locale, les permissions de la clé, le catalogue, le service de
+synchronisation, `/healthz`, `/readyz`, l’authentification data-plane et la connexion bearer utilisée
+par Codex sur `/v1/models`. Il ne lance aucune inférence payante.
 
 Voir [Installation du client](docs/client-installation.md) pour le fonctionnement, les chemins et le
 dépannage.

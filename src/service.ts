@@ -92,6 +92,46 @@ async function run(command: string[], allowFailure = false): Promise<void> {
   }
 }
 
+async function capture(command: string[]): Promise<string> {
+  const child = Bun.spawn(command, { stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    child.kill();
+  }, 5_000);
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]).finally(() => clearTimeout(timeout));
+  if (exitCode !== 0) {
+    if (timedOut) throw new Error("délai de 5s dépassé");
+    throw new Error(stderr.trim() || stdout.trim() || `code ${exitCode}`);
+  }
+  return stdout.trim();
+}
+
+export async function inspectBackgroundSync(
+  platform: NodeJS.Platform = process.platform,
+): Promise<string> {
+  if (platform === "darwin") {
+    const uid = process.getuid?.();
+    if (uid === undefined) throw new Error("utilisateur launchd indéterminé");
+    await capture(["/bin/launchctl", "print", `gui/${uid}/com.opencodex-cloud.catalog-sync`]);
+    return "LaunchAgent actif";
+  }
+
+  if (platform === "linux") {
+    const systemctl = Bun.which("systemctl");
+    if (!systemctl) throw new Error("systemctl introuvable");
+    const state = await capture([systemctl, "--user", "is-active", `${SERVICE_NAME}.timer`]);
+    if (state !== "active") throw new Error(`timer systemd ${state || "inactif"}`);
+    return "timer systemd actif";
+  }
+
+  throw new Error(`système non pris en charge : ${platform}`);
+}
+
 export async function installBackgroundSync(
   paths: ClientPaths,
   executablePath: string,

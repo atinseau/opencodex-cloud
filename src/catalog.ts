@@ -34,7 +34,7 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-function parseCatalog(raw: string): { models: unknown[] } {
+export function parseCatalogPayload(raw: string): { models: unknown[] } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -47,10 +47,13 @@ function parseCatalog(raw: string): { models: unknown[] } {
   return parsed as { models: unknown[] };
 }
 
-async function readBoundedBody(response: Response): Promise<string> {
+export async function readBoundedResponseBody(
+  response: Response,
+  maximumBytes = MAX_CATALOG_BYTES,
+): Promise<string> {
   const announcedLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(announcedLength) && announcedLength > MAX_CATALOG_BYTES) {
-    throw new Error("Le catalogue du serveur dépasse la limite de 256 Mio.");
+  if (Number.isFinite(announcedLength) && announcedLength > maximumBytes) {
+    throw new Error("La réponse du serveur dépasse la limite autorisée.");
   }
   if (!response.body) throw new Error("Le serveur a renvoyé une réponse vide.");
 
@@ -61,9 +64,9 @@ async function readBoundedBody(response: Response): Promise<string> {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > MAX_CATALOG_BYTES) {
+    if (total > maximumBytes) {
       await reader.cancel();
-      throw new Error("Le catalogue du serveur dépasse la limite de 256 Mio.");
+      throw new Error("La réponse du serveur dépasse la limite autorisée.");
     }
     chunks.push(value);
   }
@@ -74,6 +77,41 @@ async function readBoundedBody(response: Response): Promise<string> {
     offset += chunk.byteLength;
   }
   return new TextDecoder("utf-8", { fatal: true }).decode(body);
+}
+
+export interface CatalogProbe {
+  models: number;
+  etag?: string;
+  codexVersion?: string;
+}
+
+export async function probeCatalog(
+  connection: ConnectionConfig,
+  apiKey: string,
+  fetcher: FetchLike = fetch,
+): Promise<CatalogProbe> {
+  const response = await fetcher(connection.catalogUrl, {
+    headers: {
+      accept: "application/json",
+      "x-opencodex-api-key": apiKey,
+    },
+    redirect: "error",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("La clé API a été refusée par le serveur.");
+  }
+  if (response.status === 404) {
+    throw new Error("Le serveur n’a pas encore matérialisé son catalogue de modèles.");
+  }
+  if (!response.ok) throw new Error(`Catalogue distant indisponible : HTTP ${response.status}`);
+
+  const catalog = parseCatalogPayload(await readBoundedResponseBody(response));
+  return {
+    models: catalog.models.length,
+    etag: response.headers.get("etag") || undefined,
+    codexVersion: response.headers.get("x-opencodex-codex-version") || undefined,
+  };
 }
 
 export async function syncCatalog(
@@ -118,8 +156,8 @@ export async function syncCatalog(
     throw new Error(`Synchronisation impossible : HTTP ${response.status}`);
   }
 
-  const raw = await readBoundedBody(response);
-  const catalog = parseCatalog(raw);
+  const raw = await readBoundedResponseBody(response);
+  const catalog = parseCatalogPayload(raw);
   await writePrivateFile(paths.catalogFile, `${JSON.stringify(catalog)}\n`);
   await writePrivateFile(paths.stateFile, `${JSON.stringify({
     etag: response.headers.get("etag") || undefined,

@@ -1,4 +1,4 @@
-export const CLIENT_VERSION = "0.1.0";
+export const CLIENT_VERSION = "0.2.0";
 export const PROVIDER_ID = "opencodex_cloud";
 export const SERVICE_NAME = "opencodex-cloud-catalog-sync";
 export const SYNC_INTERVAL_SECONDS = 30;

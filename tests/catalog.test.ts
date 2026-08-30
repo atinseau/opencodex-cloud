@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { syncCatalog } from "../src/catalog";
+import { probeCatalog, syncCatalog } from "../src/catalog";
 import { createConnection } from "../src/connection";
 import { resolvePaths } from "../src/paths";
 import { writePrivateFile } from "../src/files";
@@ -72,5 +72,18 @@ describe("syncCatalog", () => {
 
     await syncCatalog(paths, createConnection("https://ai.example.com"), "secret", fetcher);
     expect(requests[0]?.headers.has("if-none-match")).toBeFalse();
+  });
+});
+
+describe("probeCatalog", () => {
+  test("valide le catalogue sans écrire sur le disque", async () => {
+    const probe = await probeCatalog(
+      createConnection("https://ai.example.com"),
+      "secret",
+      async () => Response.json({ models: [{ slug: "one" }] }, {
+        headers: { etag: '"v1"', "x-opencodex-codex-version": "0.151.0" },
+      }),
+    );
+    expect(probe).toEqual({ models: 1, etag: '"v1"', codexVersion: "0.151.0" });
   });
 });
