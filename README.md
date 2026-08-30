@@ -12,6 +12,36 @@ puis connecter plusieurs machines à un endpoint unique.
 - exposition : HTTPS uniquement, sans port hôte publié ;
 - authentification : clés séparées données/admin, puis une clé par machine.
 
+## Connecter une machine
+
+Le dépôt est privé : la machine doit avoir `gh` installé et authentifié, ainsi qu’une version récente
+de Codex. L’installation tient en une commande :
+
+```bash
+gh api -H "Accept: application/vnd.github.raw+json" \
+  repos/atinseau/opencodex-cloud/contents/install.sh | sh
+```
+
+L’assistant [Clack](https://bomb.sh/docs/clack/basics/getting-started/) demande seulement :
+
+1. l’adresse HTTPS du serveur ;
+2. la clé API dédiée à cette machine.
+
+Il teste le serveur et la clé, télécharge le catalogue, configure Codex puis active la synchronisation
+automatique. Ensuite, l’utilisateur lance simplement :
+
+```bash
+codex
+```
+
+Le catalogue local est vérifié toutes les 30 secondes avec ETag. Une mise à jour est écrite
+atomiquement ; une réponse invalide ne remplace jamais la dernière version valide. Codex charge ce
+catalogue au démarrage, donc un processus déjà ouvert voit les nouveaux modèles à son prochain
+lancement.
+
+Voir [Installation du client](docs/client-installation.md) pour le fonctionnement, les chemins et le
+dépannage.
+
 ## Démarrage local de validation
 
 ```bash
@@ -29,10 +59,13 @@ Compose séparé qui publie le port sur `127.0.0.1` seulement ; ne pas modifier 
 - [Sécurité](docs/security.md)
 - [Déploiement Coolify](docs/coolify-deployment.md)
 - [Configuration Codex](examples/codex-config.toml)
+- [Installation du client](docs/client-installation.md)
 - [Analyse de l'upstream](docs/research/opencodex-upstream.md)
 
 ## Limite importante
 
-Le mode remote-hub officiel d'OpenCodex est encore en revue upstream. Cette version utilise le bind
-distant stable et une configuration cliente manuelle. Elle évite de dépendre d'un protocole de
-pairing non publié et sera migrée lorsque le mode hub sera fusionné et publié.
+Le pairing `remote-hub` officiel d'OpenCodex est encore en revue upstream. Le client de ce dépôt ne
+copie pas ce protocole privé : il utilise le bind distant stable et l’endpoint data-plane
+`GET /v1/catalog` déjà publié dans OpenCodex `2.36.0`, avec une clé existante créée par
+l’administrateur. L’émission et la révocation automatisées des clés pourront adopter le pairing
+officiel lorsqu’il sera publié.

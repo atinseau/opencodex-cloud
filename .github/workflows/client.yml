@@ -1,0 +1,62 @@
+name: client
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "package.json"
+      - "bun.lock"
+      - "tsconfig.json"
+      - "install.sh"
+      - ".github/workflows/client.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release existante à laquelle joindre les binaires
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test-build-publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Installer les dépendances verrouillées
+        run: bun install --frozen-lockfile
+
+      - name: Valider le client
+        run: |
+          bun run check
+          bun test
+          sh -n install.sh
+
+      - name: Compiler les binaires autonomes
+        if: github.event_name == 'release' || inputs.release_tag != ''
+        run: |
+          mkdir -p dist
+          bun build --compile --minify --target=bun-darwin-arm64 src/cli.ts --outfile dist/opencodex-cloud-darwin-arm64
+          bun build --compile --minify --target=bun-darwin-x64-baseline src/cli.ts --outfile dist/opencodex-cloud-darwin-x64
+          bun build --compile --minify --target=bun-linux-arm64 src/cli.ts --outfile dist/opencodex-cloud-linux-arm64
+          bun build --compile --minify --target=bun-linux-x64-baseline src/cli.ts --outfile dist/opencodex-cloud-linux-x64
+          cd dist
+          sha256sum opencodex-cloud-* > checksums.txt
+
+      - name: Publier les binaires dans la release
+        if: github.event_name == 'release' || inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" dist/opencodex-cloud-* dist/checksums.txt --clobber

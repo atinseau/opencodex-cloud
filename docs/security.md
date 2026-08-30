@@ -37,6 +37,23 @@ le TLS standard de Coolify, le certificat est déjà terminé par Traefik ; ajou
 conteneur demanderait du TLS passthrough ou un listener dédié. Tailscale + clés OpenCodex offre une
 barrière équivalente plus simple à exploiter sur plusieurs machines.
 
+## Sécurité du client
+
+- l’installateur refuse HTTP sauf pour `localhost` et refuse les URL avec identifiants, chemin,
+  paramètres ou fragment ;
+- les téléchargements du binaire sont vérifiés avec le SHA-256 publié dans la release ;
+- la clé data-plane est stockée hors de `config.toml`, dans
+  `~/.config/opencodex-cloud/api-key`, avec répertoire `0700` et fichier `0600` ;
+- Codex récupère la clé à la demande par une commande d’authentification, au lieu d’une variable
+  globale ou d’un secret statique dans sa configuration ;
+- la synchronisation refuse les redirects, impose un timeout et une limite de 256 Mio, valide le JSON
+  avant remplacement et conserve le dernier catalogue valide ;
+- launchd/systemd ne reçoit jamais la clé dans les arguments ni dans son fichier de service.
+
+Ces permissions protègent le secret contre les autres comptes locaux, pas contre un processus déjà
+compromis exécuté par le même utilisateur. La révocation d’une machine se fait en supprimant sa clé
+data-plane côté OpenCodex ; la prochaine requête Codex et la prochaine synchronisation échouent alors.
+
 ## Points restant à auditer
 
 - politiques réseau et ports effectivement ouverts sur l'hôte Coolify ;

@@ -4,5 +4,6 @@
 !.env.example
 graphify-out/
 opencodex-data/
+node_modules/
+dist/
 *.log
-

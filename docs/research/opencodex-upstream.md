@@ -33,6 +33,13 @@ Le service rassemble proxy et tableau de bord, par défaut sur `localhost:10100`
 
 **Faits.** La surface data est centrée sur la compatibilité Responses API ; la traduction est conçue pour les flux et appels d'outils. Le README documente `GET /healthz` pour la vivacité et `GET /readyz` non authentifié pour la readiness post-synchronisation. `/readyz` retourne une identité assainie (`service`, `version`, `uptime`, `pid`, `port`, `status`), `200` à l'état ready et `503` (avec `Retry-After: 1`) à pending/failed. `ocx health` et `ocx ready` consomment ces sondes. ([README — health/readiness](https://github.com/lidge-jun/opencodex/blob/main/README.md#health-and-readiness))
 
+**Fait vérifié sur le tag `v2.36.0`.** La release expose déjà `GET|HEAD /v1/catalog` sur le plan de
+données. La route accepte la credential data-plane, renvoie le même JSON que le catalogue persisté,
+fournit un ETag fort, gère `If-None-Match`/`304`, refuse les écritures et borne la réponse distante à
+256 Mio. Cette route stable suffit à synchroniser les modèles d’un client sans lui remettre le token
+d’administration. Elle ne fournit pas le pairing, l’émission de clé ni les sessions distantes décrites
+par la chaîne `remote-hub`.
+
 **Faits.** La persistance locale comprend au moins `~/.opencodex/config.json`; le README indique aussi des caches et journaux mémoire bornés, sous un budget par défaut de 256 MiB, ainsi qu'une inspection authentifiée via `GET /api/system/memory`. Ce n'est donc pas, dans `main`, une architecture de contrôle central multi-hôtes avec base de données partagée. ([README — mémoire](https://github.com/lidge-jun/opencodex/blob/main/README.md#highlights))
 
 ### Installation, exécution et déploiement existants

@@ -27,13 +27,21 @@ La release stable exécute encore une synchronisation de profil Codex local au d
 crée donc un `CODEX_HOME` minimal et isolé dans le volume. Il satisfait ce contrat sans jamais monter
 ni modifier le profil Codex d'une machine cliente.
 
+Sur chaque machine cliente, le binaire autonome `opencodex-cloud` utilise uniquement le plan de
+données : il lit `GET /v1/catalog` avec la clé de la machine, conserve un cache local atomique puis
+configure Codex avec `model_catalog_json`. Un timer launchd ou systemd utilisateur vérifie l’ETag
+toutes les 30 secondes. Codex obtient son bearer token via `model_providers.opencodex_cloud.auth` :
+la clé n’est ni copiée dans `config.toml`, ni exportée globalement dans le shell, et l’utilisateur
+continue de lancer la commande standard `codex`.
+
 ## Choix de version
 
 L'image installe directement le package officiel `@bitkyc08/opencodex@2.36.0` avec Bun `1.4.0`.
-Il n'y a ni clone Git ni compilation de l'application dans l'image. L'upstream développe un vrai mode
-`hub/client` dans les PR #2771, #2772, #2776, #2777, #2781, #2786 et #2789. Elles ne sont pas encore
-fusionnées au 30 août 2026. Nous n'en copions pas le protocole privé : le dépôt pourra basculer vers
-ce mode après sa publication stable.
+Il n'y a ni clone Git ni compilation de l'application dans l'image. La route de lecture
+`GET /v1/catalog` est déjà présente dans `2.36.0`, indépendamment de la chaîne de pairing. L'upstream
+développe encore le vrai mode `hub/client` dans les PR #2771, #2772, #2776, #2777, #2781, #2786 et
+#2789. Elles ne sont pas encore toutes fusionnées au 30 août 2026. Nous n'en copions pas le protocole
+privé : le dépôt pourra basculer vers ce mode après sa publication stable.
 
 ## Persistance et sauvegarde
 

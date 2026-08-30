@@ -1,14 +1,15 @@
+# Example only: the installer generates absolute paths for the current machine.
 # Root keys must stay before the first [table].
-model_provider = "opencodex"
-model = "anthropic/claude-opus-5"
+model_provider = "opencodex_cloud"
+model_catalog_json = "/Users/alice/.codex/opencodex-cloud-catalog.json"
 
-# Do not set model_catalog_json here. The remote hub is the source of truth.
-# Codex still accepts only a local path for this key; OpenCodex `ocx connect` / `ocx sync`
-# will manage the per-machine cache path once the remote-hub release is published.
-
-[model_providers.opencodex]
+[model_providers.opencodex_cloud]
 name = "OpenCodex Cloud"
 base_url = "https://ai.example.com/v1"
 wire_api = "responses"
-requires_openai_auth = true
-env_key = "OPENCODEX_API_AUTH_TOKEN"
+
+[model_providers.opencodex_cloud.auth]
+command = "/Users/alice/.local/bin/opencodex-cloud"
+args = ["auth-token"]
+timeout_ms = 5000
+refresh_interval_ms = 0
