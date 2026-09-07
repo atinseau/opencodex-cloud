@@ -50,8 +50,8 @@ main.
 
 ## Choix de version
 
-L'image installe directement `@bitkyc08/opencodex@2.36.0` et `@openai/codex@0.151.0` avec Bun
-`1.4.0`. Elle conserve uniquement le binaire Codex natif nécessaire au catalogue, sans ses outils
+L'image installe directement `@bitkyc08/opencodex@2.46.0` et `@openai/codex@0.151.0` avec Bun
+`1.4.2`. Elle conserve uniquement le binaire Codex natif nécessaire au catalogue, sans ses outils
 agent/sandbox inutilisés par le proxy. Il n'y a ni clone Git ni compilation de l'application dans
 l'image. La route de lecture
 `GET /v1/catalog` est déjà présente dans `2.36.0`, indépendamment de la chaîne de pairing. L'upstream

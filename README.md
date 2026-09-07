@@ -6,9 +6,9 @@ puis connecter plusieurs machines à un endpoint unique.
 ## État
 
 - upstream : [`lidge-jun/opencodex`](https://github.com/lidge-jun/opencodex) ;
-- package officiel épinglé : `@bitkyc08/opencodex@2.36.0` ;
+- package officiel épinglé : `@bitkyc08/opencodex@2.46.0` ;
 - catalogue natif épinglé : `@openai/codex@0.151.0` ;
-- runtime : Bun `1.4.0` ;
+- runtime : Bun `1.4.2` ;
 - cible : Docker Compose / Coolify ;
 - exposition : HTTPS uniquement, sans port hôte publié ;
 - authentification : clés séparées données/admin, puis une clé par machine.

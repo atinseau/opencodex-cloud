@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 
-ARG BUN_VERSION=1.4.0
-FROM oven/bun:${BUN_VERSION}-slim@sha256:e0ee68d16ccb9927bf02aa7dd8fd4bf3369ee6d46da04faa72b05ce8bfd135f6
+ARG BUN_VERSION=1.4.2
+FROM oven/bun:${BUN_VERSION}-slim@sha256:cb3bbbb08e13a4a2ff400f24c7a2a1d5efa83f6ef8544d52d95a519631e2fc61
 
-ARG OPENCODEX_VERSION=2.36.0
+ARG OPENCODEX_VERSION=2.46.0
 ARG CODEX_VERSION=0.151.0
 LABEL org.opencontainers.image.title="opencodex-cloud" \
       org.opencontainers.image.description="Hardened OpenCodex container for remote cloud deployment" \
