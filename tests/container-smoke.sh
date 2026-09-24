@@ -50,7 +50,7 @@ docker exec --env EXPECTED_CODEX_VERSION="$expected_codex_version" "$container" 
   const catalog = await response.json();
   const ids = new Set(catalog.models?.map((model) => model.slug));
   if (ids.size === 0) throw new Error("materialized catalog is empty");
-  if (!ids.has("gpt-5.4")) throw new Error("native Codex catalog was not materialized");
+  if (!ids.has("gpt-5.5")) throw new Error("native Codex catalog was not materialized");
   if (response.headers.get("x-opencodex-codex-version") !== process.env.EXPECTED_CODEX_VERSION) {
     throw new Error("persisted Codex runtime version is missing");
   }

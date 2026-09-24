@@ -3,7 +3,7 @@
 ARG BUN_VERSION=1.4.2
 FROM oven/bun:${BUN_VERSION}-slim@sha256:cb3bbbb08e13a4a2ff400f24c7a2a1d5efa83f6ef8544d52d95a519631e2fc61
 
-ARG OPENCODEX_VERSION=2.46.0
+ARG OPENCODEX_VERSION=2.64.0
 ARG CODEX_VERSION=0.151.0
 LABEL org.opencontainers.image.title="opencodex-cloud" \
       org.opencontainers.image.description="Hardened OpenCodex container for remote cloud deployment" \
