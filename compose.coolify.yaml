@@ -4,7 +4,7 @@ services:
       context: .
       args:
         BUN_VERSION: "1.4.2"
-        OPENCODEX_VERSION: "2.46.0"
+        OPENCODEX_VERSION: "2.64.0"
         CODEX_VERSION: "0.151.0"
     restart: unless-stopped
     init: true
