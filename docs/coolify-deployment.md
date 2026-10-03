@@ -20,6 +20,12 @@ une valeur active inférieure à 30 secondes.
 Créer une ressource Docker Compose depuis le dépôt et sélectionner `compose.coolify.yaml`. Associer
 le domaine HTTPS au service `opencodex`, port `10100`. Ne créer aucun mapping de port hôte.
 
+Pour une ressource Coolify déployée directement depuis le Dockerfile, activer **Consistent Container
+Names** (`is_consistent_container_name_enabled=true`). OpenCodex détient un verrou exclusif sur son
+journal de dépenses : deux conteneurs ne peuvent pas partager simultanément le même volume.
+Ce réglage arrête l'ancien conteneur avant de démarrer le nouveau, avec une brève interruption.
+Un déploiement progressif échoue avec `Another OpenCodex process already owns this spend ledger`.
+
 Le premier démarrage initialise `config.json`, un profil Codex isolé et le catalogue matérialisé à
 partir du Codex CLI officiel. Les redémarrages conservent le volume. Un changement ultérieur de
 `OPENCODEX_PUBLIC_ORIGIN` ne réécrit pas une configuration existante : mettre alors
