@@ -1,0 +1,11 @@
+{
+  "hostname": "0.0.0.0",
+  "port": 10100,
+  "oauthOpenBrowser": false,
+  "codexAutoStart": false,
+  "codexShimAutoRestore": false,
+  "websockets": false,
+  "corsAllowOrigins": [],
+  "appOwnedMemoryBudgetMb": 256,
+  "shutdownTimeoutMs": 10000
+}
