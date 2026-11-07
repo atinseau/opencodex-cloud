@@ -1,7 +1,7 @@
 import { Config, Context, Effect, Layer, Schema } from "effect"
 import type { Redacted } from "effect"
 
-import { publicOrigin } from "../config.ts"
+import { publicEndpoint } from "../config.ts"
 
 const ClientSecret = Schema.RedactedFromValue(Schema.String.check(Schema.isMinLength(32)))
 
@@ -12,6 +12,7 @@ const ClientSecret = Schema.RedactedFromValue(Schema.String.check(Schema.isMinLe
 export class OAuthSettings extends Context.Service<
   OAuthSettings,
   {
+    readonly path: `/${string}`
     readonly issuer: string
     readonly resource: string
     readonly resourceMetadataUrl: string
@@ -22,13 +23,14 @@ export class OAuthSettings extends Context.Service<
   static readonly layer = Layer.effect(
     OAuthSettings,
     Effect.gen(function* () {
-      const issuer = yield* publicOrigin
+      const endpoint = yield* publicEndpoint
       const clientId = yield* Config.schema(Schema.NonEmptyString, "MCP_OAUTH_CLIENT_ID")
       const clientSecret = yield* Config.schema(ClientSecret, "MCP_OAUTH_CLIENT_SECRET")
       return OAuthSettings.of({
-        issuer,
-        resource: `${issuer}/mcp`,
-        resourceMetadataUrl: `${issuer}/.well-known/oauth-protected-resource/mcp`,
+        path: endpoint.path,
+        issuer: endpoint.url,
+        resource: endpoint.url,
+        resourceMetadataUrl: `${endpoint.origin}/.well-known/oauth-protected-resource${endpoint.path}`,
         clientId,
         clientSecret,
       })

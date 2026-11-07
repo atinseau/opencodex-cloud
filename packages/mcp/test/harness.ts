@@ -5,6 +5,7 @@ import { FetchHttpClient, HttpRouter } from "effect/http"
 import { App } from "../src/app.ts"
 
 export const ORIGIN = "http://localhost:8080"
+export const ENDPOINT = `${ORIGIN}/mcp`
 export const CLIENT_ID = "claude"
 export const CLIENT_SECRET = "test-secret-with-at-least-32-characters"
 export const UPSTREAM_KEY = "upstream-data-plane-key"
@@ -32,13 +33,13 @@ const withFileSystem = <A, E>(f: (fs: FileSystem.FileSystem) => Effect.Effect<A,
   )
 
 /** Starts the whole connector in memory against a fake OpenCodex hub on an ephemeral port. */
-export const startServer = async (): Promise<TestServer> => {
+export const startServer = async (endpoint = ENDPOINT): Promise<TestServer> => {
   let upstreamHandler = unconfigured
   const upstream = Bun.serve({ port: 0, fetch: (request) => upstreamHandler(request) })
   const dataDirectory = await withFileSystem((fs) => fs.makeTempDirectory())
   const config = ConfigProvider.layer(
     ConfigProvider.fromUnknown({
-      MCP_PUBLIC_URL: ORIGIN,
+      MCP_PUBLIC_URL: endpoint,
       MCP_OAUTH_CLIENT_ID: CLIENT_ID,
       MCP_OAUTH_CLIENT_SECRET: CLIENT_SECRET,
       OPENCODEX_URL: upstream.url.origin,

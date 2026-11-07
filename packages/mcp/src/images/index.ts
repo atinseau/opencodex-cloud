@@ -1,7 +1,7 @@
 import { Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/http"
 
-import { publicOrigin } from "../config.ts"
+import { publicEndpoint } from "../config.ts"
 import { ImageGenerationError } from "./errors.ts"
 import { OpenCodexImages } from "./opencodex.ts"
 import { previewOf } from "./preview.ts"
@@ -30,7 +30,7 @@ export class ImageGeneration extends Context.Service<
   static readonly layer = Layer.effect(
     ImageGeneration,
     Effect.gen(function* () {
-      const origin = yield* publicOrigin
+      const endpoint = yield* publicEndpoint
       const upstream = yield* OpenCodexImages
       const store = yield* ImageStore
       const create = Effect.fn("ImageGeneration.create")(function* (prompt: string) {
@@ -45,7 +45,7 @@ export class ImageGeneration extends Context.Service<
           preview: preview.jpeg,
           width: preview.width,
           height: preview.height,
-          downloadUrl: `${origin}/images/${id}.png`,
+          downloadUrl: `${endpoint.url}/images/${id}.png`,
           retainedFor: retentionLabel(store.retention),
         }
       })
@@ -80,7 +80,8 @@ const download = (store: ImageStore["Service"]) =>
 
 const DownloadRoute = HttpRouter.use(
   Effect.fn(function* (router) {
-    yield* router.add("GET", "/images/:file", download(yield* ImageStore))
+    const { path } = yield* publicEndpoint
+    yield* router.add("GET", `${path}/images/:file`, download(yield* ImageStore))
   }),
 )
 

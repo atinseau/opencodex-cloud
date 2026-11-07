@@ -95,7 +95,7 @@ describe("generate_image", () => {
     expect(result.isError).toBeUndefined()
     expect(image).toMatchObject({ type: "image", mimeType: "image/jpeg" })
 
-    const link = /\/images\/[\w-]{43}\.png/u.exec(description?.text ?? "")?.[0] ?? ""
+    const link = /\/mcp\/images\/[\w-]{43}\.png/u.exec(description?.text ?? "")?.[0] ?? ""
     expect(description?.text).toContain(`${ORIGIN}${link}`)
     const download = await server.request(link)
     expect(download.headers.get("content-type")).toBe("image/png")
@@ -129,6 +129,6 @@ describe("generate_image", () => {
 })
 
 test("unknown image links return 404", async () => {
-  expect((await server.request(`/images/${"A".repeat(43)}.png`)).status).toBe(404)
-  expect((await server.request("/images/..%2F..%2Fetc%2Fpasswd")).status).toBe(404)
+  expect((await server.request(`/mcp/images/${"A".repeat(43)}.png`)).status).toBe(404)
+  expect((await server.request("/mcp/images/..%2F..%2Fetc%2Fpasswd")).status).toBe(404)
 })

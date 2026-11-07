@@ -35,18 +35,35 @@ confirme qu'un compte est connecté.
 
 ## Connecteur Claude
 
-| Réglage              | Valeur                                                         |
-| -------------------- | -------------------------------------------------------------- |
-| Dockerfile           | `/packages/mcp/Dockerfile`, base directory `/`                 |
-| Port exposé          | `8080`                                                         |
-| Domaine              | origine dédiée, par exemple `https://mcp.example.com`          |
-| Stockage persistant  | volume monté sur `/data`                                       |
-| Watch paths          | `packages/mcp/**`, `package.json`, `bun.lock` et `bunfig.toml` |
-| Options `docker run` | les mêmes que pour le hub                                      |
+Le connecteur peut partager le domaine du hub : il n'occupe que le chemin de son endpoint, par
+exemple `/mcp`, et trois documents de découverte OAuth suffixés par ce chemin. Le reste du domaine
+continue d'aller au hub, car Traefik préfère les routes les plus spécifiques.
+
+| Réglage              | Valeur                                                             |
+| -------------------- | ------------------------------------------------------------------ |
+| Dockerfile           | `/packages/mcp/Dockerfile`, base directory `/`                     |
+| Port exposé          | `8080`                                                             |
+| Domaines             | voir ci-dessous                                                    |
+| Advanced > Proxy     | **Keep paths as-is** : le connecteur doit recevoir `/mcp`, pas `/` |
+| Stockage persistant  | volume monté sur `/data`                                           |
+| Watch paths          | `packages/mcp/**`, `package.json`, `bun.lock` et `bunfig.toml`     |
+| Options `docker run` | les mêmes que pour le hub                                          |
+
+Domaines pour un endpoint `https://opencodex.example.com/mcp` :
+
+```text
+https://opencodex.example.com/mcp
+https://opencodex.example.com/.well-known/oauth-protected-resource/mcp
+https://opencodex.example.com/.well-known/oauth-authorization-server/mcp
+https://opencodex.example.com/.well-known/openid-configuration/mcp
+```
+
+Avec un domaine dédié, un seul domaine suffit, par exemple `https://mcp.example.com`.
 
 Variables d'environnement :
 
-- `MCP_PUBLIC_URL` : l'origine exacte du domaine, sans slash final ;
+- `MCP_PUBLIC_URL` : l'URL exacte de l'endpoint saisie dans Claude, sans slash final, par exemple
+  `https://opencodex.example.com/mcp`. Toutes les routes du connecteur sont montées sous ce chemin ;
 - `MCP_OAUTH_CLIENT_ID` : identifiant saisi dans Claude, par exemple `claude` ;
 - `MCP_OAUTH_CLIENT_SECRET` : secret d'au moins 32 caractères (`openssl rand -hex 32`) ;
 - `OPENCODEX_URL` : adresse interne du hub, `http://<nom du conteneur du hub>:10100` ;
@@ -56,7 +73,7 @@ Variables d'environnement :
 ## Ajouter le connecteur dans Claude
 
 1. Dans Claude, ouvrir **Personnaliser > Connecteurs**, puis **Ajouter un connecteur personnalisé**.
-2. Saisir l'URL `https://mcp.example.com/mcp`.
+2. Saisir l'URL `MCP_PUBLIC_URL`.
 3. Dans les paramètres avancés, choisir son propre client OAuth et saisir `MCP_OAUTH_CLIENT_ID` et
    `MCP_OAUTH_CLIENT_SECRET`.
 4. Cliquer sur **Connecter**. Le serveur approuve la demande sans page intermédiaire : seul un client
@@ -71,7 +88,8 @@ reçoit un aperçu JPEG de l'image et un lien vers le PNG original, valable pend
 ## Vérifier un déploiement
 
 ```bash
-curl -fsS https://mcp.example.com/healthz
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://mcp.example.com/mcp   # 401
-curl -fsS https://mcp.example.com/.well-known/oauth-protected-resource/mcp
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://opencodex.example.com/mcp   # 401
+curl -fsS https://opencodex.example.com/.well-known/oauth-protected-resource/mcp
+curl -fsS https://opencodex.example.com/.well-known/oauth-authorization-server/mcp
+curl -fsS https://opencodex.example.com/healthz                                   # le hub
 ```

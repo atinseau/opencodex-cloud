@@ -19,7 +19,7 @@ export const pkce = () => {
 }
 
 export const authorizeUrl = (params: Readonly<Record<string, string>>) =>
-  `/authorize?${new URLSearchParams({
+  `/mcp/authorize?${new URLSearchParams({
     response_type: "code",
     client_id: CLIENT_ID,
     redirect_uri: HOSTED_CALLBACK,
@@ -34,7 +34,7 @@ export const postToken = (
   form: Readonly<Record<string, string>>,
   authorization = basicAuth(),
 ) =>
-  server.request("/token", {
+  server.request("/mcp/token", {
     method: "POST",
     headers: { authorization, "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(form),

@@ -36,7 +36,7 @@ services:
       context: .
       dockerfile: packages/mcp/Dockerfile
     environment:
-      MCP_PUBLIC_URL: http://localhost:8080
+      MCP_PUBLIC_URL: http://localhost:8080/mcp
       MCP_OAUTH_CLIENT_ID: ${MCP_OAUTH_CLIENT_ID:-claude}
       MCP_OAUTH_CLIENT_SECRET: ${MCP_OAUTH_CLIENT_SECRET:?required}
       OPENCODEX_URL: http://hub:10100

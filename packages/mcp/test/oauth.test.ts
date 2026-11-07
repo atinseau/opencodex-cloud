@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 
-import { HOSTED_CALLBACK, ORIGIN, startServer } from "./harness.ts"
+import { ENDPOINT, HOSTED_CALLBACK, ORIGIN, startServer } from "./harness.ts"
 import type { TestServer } from "./harness.ts"
 import {
   authorizeCode,
@@ -35,18 +35,50 @@ describe("discovery", () => {
     const resource: unknown = await (
       await server.request("/.well-known/oauth-protected-resource/mcp")
     ).json()
-    expect(resource).toMatchObject({ resource: `${ORIGIN}/mcp`, authorization_servers: [ORIGIN] })
+    expect(resource).toMatchObject({ resource: ENDPOINT, authorization_servers: [ENDPOINT] })
 
     const issuer: unknown = await (
-      await server.request("/.well-known/oauth-authorization-server")
+      await server.request("/.well-known/oauth-authorization-server/mcp")
     ).json()
     expect(issuer).toMatchObject({
-      issuer: ORIGIN,
-      token_endpoint: `${ORIGIN}/token`,
+      issuer: ENDPOINT,
+      authorization_endpoint: `${ENDPOINT}/authorize`,
+      token_endpoint: `${ENDPOINT}/token`,
       code_challenge_methods_supported: ["S256"],
     })
     expect(issuer).not.toHaveProperty("registration_endpoint")
     expect(issuer).not.toHaveProperty("client_id_metadata_document_supported")
+  })
+
+  test("serves the authorization server metadata at every OpenID discovery location", async () => {
+    const documents = await Promise.all(
+      ["/.well-known/openid-configuration/mcp", "/mcp/.well-known/openid-configuration"].map(
+        async (path): Promise<unknown> => (await server.request(path)).json(),
+      ),
+    )
+    expect(documents).toEqual([
+      expect.objectContaining({ issuer: ENDPOINT }),
+      expect.objectContaining({ issuer: ENDPOINT }),
+    ])
+  })
+
+  test("mounts every route below the configured endpoint path", async () => {
+    const nested = await startServer(`${ORIGIN}/connectors/opencodex`)
+    try {
+      const challenge = await nested.request("/connectors/opencodex", { method: "POST" })
+      expect(challenge.headers.get("www-authenticate")).toBe(
+        `Bearer resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/connectors/opencodex"`,
+      )
+      expect((await nested.request("/mcp", { method: "POST" })).status).toBe(404)
+      const metadata: unknown = await (
+        await nested.request("/.well-known/oauth-authorization-server/connectors/opencodex")
+      ).json()
+      expect(metadata).toMatchObject({
+        token_endpoint: `${ORIGIN}/connectors/opencodex/token`,
+      })
+    } finally {
+      await nested.dispose()
+    }
   })
 })
 
