@@ -21,6 +21,8 @@ const unconfigured: UpstreamHandler = () => new Response("not configured", { sta
 
 export interface TestServer {
   request(path: string, init?: RequestInit): Promise<Response>
+  /** Absolute URL of the connector served over real HTTP on an ephemeral port. */
+  url(path: string): string
   setUpstream(handler: UpstreamHandler): void
   dispose(): Promise<void>
 }
@@ -55,12 +57,15 @@ export const startServer = async (endpoint = ENDPOINT): Promise<TestServer> => {
     ),
     { disableLogger: true },
   )
+  const app = Bun.serve({ port: 0, fetch: (request) => handler(request) })
   return {
     request: (path, init) => handler(new Request(new URL(path, ORIGIN), init)),
+    url: (path) => new URL(path, app.url).toString(),
     setUpstream: (next) => {
       upstreamHandler = next
     },
     dispose: async () => {
+      await app.stop(true)
       await dispose()
       await upstream.stop(true)
       await withFileSystem((fs) => fs.remove(dataDirectory, { recursive: true }))
