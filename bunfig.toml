@@ -1,0 +1,7 @@
+[install]
+exact = true
+linker = "isolated"
+
+[test]
+root = "."
+pathIgnorePatterns = ["node_modules/**"]

@@ -1,0 +1,51 @@
+# Local validation of both containers with the same hardening expected in production.
+#   cp .env.example .env && docker compose up --build
+name: opencodex-cloud
+
+x-hardening: &hardening
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+
+services:
+  hub:
+    <<: *hardening
+    image: opencodex-cloud-hub:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      OPENCODEX_API_AUTH_TOKEN: ${OPENCODEX_API_AUTH_TOKEN:?required}
+      OPENCODEX_ADMIN_AUTH_TOKEN: ${OPENCODEX_ADMIN_AUTH_TOKEN:?required}
+      TZ: ${TZ:-Europe/Paris}
+    ports:
+      - "127.0.0.1:10100:10100"
+    volumes:
+      - hub-data:/var/lib/opencodex
+
+  mcp:
+    <<: *hardening
+    image: opencodex-cloud-mcp:local
+    build:
+      context: .
+      dockerfile: packages/mcp/Dockerfile
+    environment:
+      MCP_PUBLIC_URL: http://localhost:8080
+      MCP_OAUTH_CLIENT_ID: ${MCP_OAUTH_CLIENT_ID:-claude}
+      MCP_OAUTH_CLIENT_SECRET: ${MCP_OAUTH_CLIENT_SECRET:?required}
+      OPENCODEX_URL: http://hub:10100
+      OPENCODEX_API_KEY: ${OPENCODEX_API_AUTH_TOKEN:?required}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - mcp-data:/data
+
+volumes:
+  hub-data:
+  mcp-data:
