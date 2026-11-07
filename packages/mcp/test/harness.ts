@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun"
-import { ConfigProvider, Effect, FileSystem, Layer } from "effect"
+import { ConfigProvider, Effect, FileSystem, Layer, References } from "effect"
 import { FetchHttpClient, HttpRouter } from "effect/http"
 
 import { App } from "../src/app.ts"
@@ -50,6 +50,7 @@ export const startServer = async (endpoint = ENDPOINT): Promise<TestServer> => {
   const { handler, dispose } = HttpRouter.toWebHandler(
     App.pipe(
       Layer.provide(Layer.mergeAll(FetchHttpClient.layer, BunServices.layer)),
+      Layer.provideMerge(Layer.succeed(References.MinimumLogLevel, "Warn")),
       Layer.provide(config),
     ),
     { disableLogger: true },

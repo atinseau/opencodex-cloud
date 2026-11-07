@@ -3,9 +3,10 @@ import { McpProtocol, McpServer } from "effect/ai"
 
 import { publicEndpoint } from "../config.ts"
 import { GenerateImageTool } from "./generate-image.ts"
+import { McpRequestLog } from "./request-log.ts"
 
 /** Streamable HTTP MCP endpoint served at the path of `MCP_PUBLIC_URL`. */
-export const Mcp = GenerateImageTool.pipe(
+const Server = GenerateImageTool.pipe(
   Layer.provide(
     Layer.unwrap(
       Effect.gen(function* () {
@@ -21,3 +22,5 @@ export const Mcp = GenerateImageTool.pipe(
     ),
   ),
 )
+
+export const Mcp = Layer.mergeAll(Server, McpRequestLog)
