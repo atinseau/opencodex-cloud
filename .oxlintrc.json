@@ -1,0 +1,162 @@
+{
+  "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+  "extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error",
+    "pedantic": "error",
+    "restriction": "off",
+    "style": "off"
+  },
+  "env": {
+    "builtin": true
+  },
+  "ignorePatterns": ["node_modules/**", "**/dist/**", "coverage/**"],
+  "rules": {
+    "import/no-nodejs-modules": "error",
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "process",
+        "message": "Use Effect Config / platform services instead of process."
+      },
+      {
+        "name": "Buffer",
+        "message": "Use Uint8Array / TextEncoder instead of Buffer."
+      },
+      {
+        "name": "require",
+        "message": "ESM only."
+      },
+      {
+        "name": "__dirname",
+        "message": "Use import.meta.dir."
+      },
+      {
+        "name": "__filename",
+        "message": "Use import.meta.path."
+      },
+      {
+        "name": "setTimeout",
+        "message": "Use Effect.sleep / Schedule."
+      },
+      {
+        "name": "setInterval",
+        "message": "Use Effect.schedule / Schedule."
+      }
+    ],
+    "import/no-default-export": "error",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "import/no-self-import": "error",
+    "no-console": "error",
+    "no-debugger": "error",
+    "eqeqeq": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-param-reassign": "error",
+    "max-lines": [
+      "error",
+      {
+        "max": 250,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
+    ],
+    "max-depth": ["error", 3],
+    "complexity": ["error", 12],
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/strict-boolean-expressions": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-unsafe-type-assertion": "error",
+    "typescript/prefer-nullish-coalescing": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/no-namespace": "off",
+    "unicorn/no-null": "off",
+    "unicorn/no-array-callback-reference": "off",
+    "no-underscore-dangle": "off",
+    "no-redeclare": "off",
+    "typescript/prefer-readonly-parameter-types": "off",
+    "unicorn/require-module-specifiers": "off",
+    "require-yield": "off",
+    "max-classes-per-file": "off",
+    "effecttsgo/unstable-api-usage": "off",
+    "effecttsgo/experimental-api-usage": "off",
+    "typescript/consistent-return": "off",
+    "max-lines-per-function": [
+      "error",
+      {
+        "max": 50,
+        "skipBlankLines": false,
+        "skipComments": false
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["**/test/**/*.ts", "**/test/**/*.tsx", "**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "max-lines": [
+          "error",
+          {
+            "max": 400,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ],
+        "max-lines-per-function": "off",
+        "effecttsgo/strict-effect-provide": "off"
+      }
+    },
+    {
+      "files": ["*.config.ts"],
+      "rules": {
+        "import/no-default-export": "off"
+      }
+    },
+    {
+      "files": ["packages/mcp/src/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@opencodex-cloud/*"],
+                "message": "packages/mcp does not depend on other workspaces."
+              },
+              {
+                "group": ["../*/*", "!../*/index.ts"],
+                "message": "Import another capability through its index.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/mcp/test/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["../src/*/**"],
+                "message": "Tests exercise the connector through src/app.ts."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

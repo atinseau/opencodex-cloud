@@ -1,77 +1,32 @@
 # Modèle de sécurité
 
-## Barrières obligatoires
+## Hub
 
-1. Coolify termine TLS avec un certificat valide. Aucun accès HTTP public n'est autorisé.
-2. Le conteneur n'expose aucun port sur l'hôte. Seul le réseau proxy de Coolify peut joindre `10100`.
-3. `OPENCODEX_API_AUTH_TOKEN` protège le trafic modèle et `OPENCODEX_ADMIN_AUTH_TOKEN` protège le
-   dashboard et `/api/*`. L'entrypoint refuse les secrets absents, trop courts ou identiques.
-4. Une clé par machine est créée ensuite dans le dashboard pour permettre révocation et attribution.
-5. Le volume, ses snapshots et les sauvegardes doivent être chiffrés. Les jetons OAuth sont des
-   secrets récupérables depuis les fichiers par un administrateur de l'hôte.
+- Coolify termine TLS. Aucun port n'est publié sur l'hôte ; seul Traefik joint le port `10100`.
+- `OPENCODEX_API_AUTH_TOKEN` protège le plan de données et `OPENCODEX_ADMIN_AUTH_TOKEN` le dashboard
+  et `/api/*`. OpenCodex refuse d'écouter hors loopback sans clé de plan de données.
+- Chaque client reçoit sa propre clé, créée dans le dashboard, pour pouvoir la révoquer seule.
+- Le volume contient les jetons OAuth des comptes connectés : il doit être sauvegardé chiffré. Une
+  fuite du volume impose de révoquer les comptes et de faire tourner toutes les clés.
 
-## Durcissement du conteneur
+## Connecteur Claude
 
-- utilisateur non privilégié `bun` ;
-- toutes les capabilities Linux supprimées ;
-- `no-new-privileges` ;
-- racine en lecture seule et `/tmp` éphémère avec `noexec,nosuid,nodev` ;
-- volume dédié en écriture ;
-- nombre de processus borné ;
-- logs Docker rotatifs ;
-- OpenCodex, Codex CLI et runtime Bun épinglés ;
-- images de base et frontend Docker épinglés par digest SHA-256 ;
-- dépendances de production seulement, scripts d'installation désactivés ;
-- aucun socket Docker monté.
+- Le connecteur ne reçoit qu'une clé de plan de données du hub. Il n'a accès ni au volume du hub, ni
+  aux jetons des comptes, ni à l'administration.
+- Claude s'authentifie comme client OAuth confidentiel : PKCE S256 obligatoire, redirection limitée à
+  `https://claude.ai/api/mcp/auth_callback` et au loopback de Claude Code, codes à usage unique valables
+  une minute.
+- Les jetons sont signés en HMAC-SHA256 avec une clé dérivée du secret client. Un jeton d'accès vit
+  une heure et un refresh token trente jours. Changer `MCP_OAUTH_CLIENT_SECRET` révoque tous les
+  jetons d'un coup.
+- Les liens d'images contiennent un identifiant aléatoire de 256 bits : quiconque possède le lien
+  peut télécharger l'image jusqu'à sa suppression, après `MCP_IMAGE_RETENTION`.
+- Toute personne qui connaît le secret client peut générer des images sur le compte ChatGPT du hub.
 
-La réconciliation périodique utilise le management-plane uniquement par loopback. Elle envoie le
-token admin dans le header `Authorization`, jamais dans une URL ou une ligne de commande, applique
-un timeout de 30 secondes et interdit les intervalles inférieurs à 30 secondes. Une convergence déjà
-en cours bloque le lancement d'une seconde ; un échec conserve le dernier catalogue valide.
+## Conteneurs
 
-## Accès réseau recommandé
-
-La clé OpenCodex sur HTTPS est le minimum. Pour un bastion réellement privé, ajouter une barrière
-réseau indépendante : Tailscale/WireGuard ou Cloudflare Access avec identité d'entreprise. Le meilleur
-profil est de ne publier le domaine que sur le réseau privé. Un mot de passe HTTP devant tout le
-domaine peut casser les clients API ; si une seconde authentification est souhaitée, elle doit viser
-uniquement le dashboard et `/api/*`, ou être appliquée par un réseau privé transparent aux clients.
-
-Le mTLS est excellent, mais doit être terminé par le composant qui voit le certificat client. Avec
-le TLS standard de Coolify, le certificat est déjà terminé par Traefik ; ajouter du mTLS dans le
-conteneur demanderait du TLS passthrough ou un listener dédié. Tailscale + clés OpenCodex offre une
-barrière équivalente plus simple à exploiter sur plusieurs machines.
-
-## Sécurité du client
-
-- l’assistant `connect` exige une origine distante HTTPS et refuse localhost pour empêcher un
-  basculement accidentel vers un proxy local ; le loopback n’est disponible qu’avec l’opt-in de
-  développement `OPENCODEX_CLOUD_ALLOW_LOOPBACK=1` ;
-- les téléchargements du binaire sont vérifiés avec le SHA-256 publié dans la release ;
-- la clé data-plane est stockée hors de `config.toml`, dans
-  `~/.config/opencodex-cloud/api-key`, avec répertoire `0700` et fichier `0600` ;
-- Codex récupère la clé à la demande par une commande d’authentification, au lieu d’une variable
-  globale ou d’un secret statique dans sa configuration ;
-- la synchronisation refuse les redirects, impose un timeout et une limite de 256 Mio, valide le JSON
-  avant remplacement et conserve le dernier catalogue valide ;
-- launchd/systemd ne reçoit jamais la clé dans les arguments ni dans son fichier de service ;
-- avant de remplacer un routage Codex existant, l’assistant affiche le provider, le catalogue et le
-  proxy local détectés puis exige une confirmation ;
-- l’état de restauration ne contient que les fragments de routage remplacés, est écrit en `0600`, et
-  `disconnect` ne restaure jamais aveuglément l’intégralité d’un ancien `config.toml`.
-
-Ces permissions protègent le secret contre les autres comptes locaux, pas contre un processus déjà
-compromis exécuté par le même utilisateur. La révocation d’une machine se fait en supprimant sa clé
-data-plane côté OpenCodex ; la prochaine requête Codex et la prochaine synchronisation échouent alors.
-
-## Points restant à auditer
-
-- politiques réseau et ports effectivement ouverts sur l'hôte Coolify ;
-- version et correctifs de Coolify, Docker et du noyau ;
-- configuration SSH, pare-feu et fail2ban ;
-- accès au dashboard Coolify et MFA ;
-- permissions des volumes et chiffrement des sauvegardes ;
-- domaines, certificats, headers proxy et limites de débit ;
-- exposition de `/api/*`, `/healthz` et `/readyz` ;
-- rotation et révocation des secrets ;
-- vulnérabilités CVE de l'image construite.
+Les deux images tournent avec l'utilisateur non privilégié `bun`, sans capability Linux, avec
+`no-new-privileges`, une racine en lecture seule et un `/tmp` éphémère. Ces options sont celles de
+`compose.yaml` et doivent être reportées dans les options `docker run` de chaque application
+Coolify, qui n'applique pas le fichier Compose. Les images de base sont épinglées par digest, et la CI
+analyse les deux images avec Trivy.
