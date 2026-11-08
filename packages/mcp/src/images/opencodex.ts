@@ -1,11 +1,12 @@
 import { Config, Context, Effect, flow, Layer, Option, Schema } from "effect"
+import * as Base64 from "effect/encoding/Base64"
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 
 import { ImageGenerationError } from "./errors.ts"
 
 const GENERATION_TIMEOUT = "200 seconds"
 
-const GenerationResponse = Schema.Struct({
+const ImageResponse = Schema.Struct({
   data: Schema.NonEmptyArray(Schema.Struct({ b64_json: Schema.Uint8ArrayFromBase64 })),
 })
 
@@ -28,10 +29,38 @@ const upstreamFailure = (response: HttpClientResponse.HttpClientResponse) =>
       ),
   )
 
-/** Client for the hub's `/v1/images/generations` relay to the connected ChatGPT account. */
+/** Posts an OpenAI Images request to the hub and returns the PNG it produced. */
+const relay = Effect.fn("OpenCodexImages.relay")(function* (
+  client: HttpClient.HttpClient,
+  path: string,
+  body: object,
+) {
+  const response = yield* HttpClientRequest.post(path).pipe(
+    HttpClientRequest.bodyJsonUnsafe(body),
+    client.execute,
+    Effect.timeoutOrElse({
+      duration: GENERATION_TIMEOUT,
+      orElse: () => Effect.fail(failure("OpenCodex did not answer in time.")),
+    }),
+    Effect.catchTag("HttpClientError", () => Effect.fail(failure("OpenCodex is unreachable."))),
+  )
+  if (response.status >= 400) {
+    return yield* upstreamFailure(response)
+  }
+  const decoded = yield* HttpClientResponse.schemaBodyJson(ImageResponse)(response).pipe(
+    Effect.mapError(() => failure("OpenCodex returned an unexpected image payload.")),
+  )
+  return decoded.data[0].b64_json
+})
+
+/** Client for the hub's `/v1/images` relay to the connected ChatGPT account. */
 export class OpenCodexImages extends Context.Service<
   OpenCodexImages,
-  { generate(prompt: string): Effect.Effect<Uint8Array, ImageGenerationError> }
+  {
+    generate(prompt: string): Effect.Effect<Uint8Array, ImageGenerationError>
+    /** Applies the prompt to a PNG. The hub keeps the source dimensions. */
+    edit(prompt: string, png: Uint8Array): Effect.Effect<Uint8Array, ImageGenerationError>
+  }
 >()("opencodex-cloud/mcp/images/OpenCodexImages") {
   static readonly layer = Layer.effect(
     OpenCodexImages,
@@ -44,28 +73,14 @@ export class OpenCodexImages extends Context.Service<
         ),
       )
 
-      const generate = Effect.fn("OpenCodexImages.generate")(function* (prompt: string) {
-        const response = yield* HttpClientRequest.post("/v1/images/generations").pipe(
-          HttpClientRequest.bodyJsonUnsafe({ prompt }),
-          client.execute,
-          Effect.timeoutOrElse({
-            duration: GENERATION_TIMEOUT,
-            orElse: () => Effect.fail(failure("OpenCodex did not answer in time.")),
+      return OpenCodexImages.of({
+        generate: (prompt) => relay(client, "/v1/images/generations", { prompt }),
+        edit: (prompt, png) =>
+          relay(client, "/v1/images/edits", {
+            prompt,
+            images: [{ image_url: `data:image/png;base64,${Base64.encode(png)}` }],
           }),
-          Effect.catchTag("HttpClientError", () =>
-            Effect.fail(failure("OpenCodex is unreachable.")),
-          ),
-        )
-        if (response.status >= 400) {
-          return yield* upstreamFailure(response)
-        }
-        const body = yield* HttpClientResponse.schemaBodyJson(GenerationResponse)(response).pipe(
-          Effect.mapError(() => failure("OpenCodex returned an unexpected image payload.")),
-        )
-        return body.data[0].b64_json
       })
-
-      return OpenCodexImages.of({ generate })
     }),
   )
 }

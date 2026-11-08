@@ -1,7 +1,8 @@
 # opencodex-cloud
 
 Déploiement Coolify d'un hub [OpenCodex](https://github.com/lidge-jun/opencodex) et d'un connecteur
-Claude qui expose la génération d'image de ce hub à Claude Desktop, claude.ai et Claude Code.
+Claude qui expose la génération et la retouche d'image de ce hub à Claude Desktop, claude.ai et
+Claude Code.
 
 | Chemin               | Rôle                                                                                  |
 | -------------------- | ------------------------------------------------------------------------------------- |
@@ -17,7 +18,9 @@ L'image ajoute seulement le binaire Codex natif, dont OpenCodex a besoin pour g�
 de modèles, et place tout l'état dans le volume `/var/lib/opencodex`.
 
 Le connecteur tourne dans un conteneur séparé et parle au hub par le réseau Docker privé de Coolify.
-Il propose un outil, `generate_image`, qui renvoie un aperçu à Claude et un lien vers le PNG complet.
+Il propose deux outils, qui renvoient chacun un aperçu à Claude et un lien vers le PNG complet :
+`generate_image` crée une image à partir d'un texte, et `edit_image` modifie une image produite
+par le connecteur à partir de son lien.
 Le choix est expliqué dans [ADR 0001](docs/adr/0001-mcp-companion-container.md).
 
 ## Développement

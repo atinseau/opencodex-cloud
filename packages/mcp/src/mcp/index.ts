@@ -2,23 +2,27 @@ import { Effect, Layer } from "effect"
 import { McpProtocol, McpServer } from "effect/ai"
 
 import { publicEndpoint } from "../config.ts"
-import { GenerateImageTool } from "./generate-image.ts"
+import { registerEditImage } from "./edit-image.ts"
+import { registerGenerateImage } from "./generate-image.ts"
 import { McpRequestLog } from "./request-log.ts"
+
+/** Tools, registered one after the other so Claude lists them in this order. */
+const Tools = Layer.effectDiscard(Effect.andThen(registerGenerateImage, registerEditImage))
 
 /**
  * Streamable HTTP MCP endpoint served at the path of `MCP_PUBLIC_URL`. Claude opens with the
  * sessionless 2026-07-28 `server/discover` handshake and falls back to a session-based
  * `initialize`, so both kinds of protocol are offered.
  */
-const Server = GenerateImageTool.pipe(
+const Server = Tools.pipe(
   Layer.provide(
     Layer.unwrap(
       Effect.gen(function* () {
         const { path } = yield* publicEndpoint
         return McpServer.layerHttp({
           name: "opencodex-cloud",
-          version: "0.1.0",
-          description: "Image generation through a self-hosted OpenCodex hub",
+          version: "0.2.0",
+          description: "Image generation and editing through a self-hosted OpenCodex hub",
           path,
           protocols: [
             McpProtocol.v2026_07_28,

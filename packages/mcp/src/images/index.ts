@@ -2,6 +2,7 @@ import { Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/http"
 
 import { publicEndpoint } from "../config.ts"
+import type { PublicEndpoint } from "../config.ts"
 import { ImageGenerationError } from "./errors.ts"
 import { OpenCodexImages } from "./opencodex.ts"
 import { previewOf } from "./preview.ts"
@@ -22,10 +23,35 @@ const retentionLabel = (retention: Duration.Duration): string => {
   return Number.isInteger(days) ? `${days} day${days === 1 ? "" : "s"}` : Duration.format(retention)
 }
 
-/** Generates an image through the hub, keeps the full PNG and prepares a preview for Claude. */
+const STORED_FILE = /^([\w-]{43})(?:\.png)?$/u
+
+/**
+ * Image id behind a download link this connector produced, or behind its bare file name. Any
+ * other URL resolves to nothing: the connector never fetches images from elsewhere.
+ */
+const storedIdOf = (endpoint: PublicEndpoint, reference: string): Option.Option<string> => {
+  const trimmed = reference.trim()
+  const prefix = `${endpoint.url}/images/`
+  const file = trimmed.startsWith(prefix) ? trimmed.slice(prefix.length) : trimmed
+  return Option.fromNullishOr(STORED_FILE.exec(file)?.[1])
+}
+
+const unknownSource = new ImageGenerationError({
+  message:
+    "This image is unknown or has expired. edit_image only accepts the full-resolution link returned by generate_image or edit_image.",
+})
+
+/**
+ * Creates and edits images through the hub. Every result keeps its full PNG on disk and comes
+ * with a preview small enough for Claude.
+ */
 export class ImageGeneration extends Context.Service<
   ImageGeneration,
-  { create(prompt: string): Effect.Effect<GeneratedImage, ImageGenerationError> }
+  {
+    create(prompt: string): Effect.Effect<GeneratedImage, ImageGenerationError>
+    /** Edits an image this connector produced, identified by its download link. */
+    edit(source: string, prompt: string): Effect.Effect<GeneratedImage, ImageGenerationError>
+  }
 >()("opencodex-cloud/mcp/images/ImageGeneration") {
   static readonly layer = Layer.effect(
     ImageGeneration,
@@ -33,8 +59,8 @@ export class ImageGeneration extends Context.Service<
       const endpoint = yield* publicEndpoint
       const upstream = yield* OpenCodexImages
       const store = yield* ImageStore
-      const create = Effect.fn("ImageGeneration.create")(function* (prompt: string) {
-        const png = yield* upstream.generate(prompt)
+
+      const publish = Effect.fn("ImageGeneration.publish")(function* (png: Uint8Array) {
         const preview = yield* previewOf(png).pipe(
           Effect.mapError(
             () => new ImageGenerationError({ message: "The generated image is unreadable." }),
@@ -49,7 +75,27 @@ export class ImageGeneration extends Context.Service<
           retainedFor: retentionLabel(store.retention),
         }
       })
-      return ImageGeneration.of({ create })
+
+      const stored = Effect.fn("ImageGeneration.stored")(function* (source: string) {
+        const png = yield* Option.match(storedIdOf(endpoint, source), {
+          onNone: () => Effect.succeed(Option.none<Uint8Array>()),
+          onSome: (id) => store.read(id),
+        })
+        if (Option.isNone(png)) {
+          return yield* unknownSource
+        }
+        return png.value
+      })
+
+      return ImageGeneration.of({
+        create: Effect.fn("ImageGeneration.create")(function* (prompt: string) {
+          return yield* publish(yield* upstream.generate(prompt))
+        }),
+        edit: Effect.fn("ImageGeneration.edit")(function* (source: string, prompt: string) {
+          const original = yield* stored(source)
+          return yield* publish(yield* upstream.edit(prompt, original))
+        }),
+      })
     }),
   )
 }
@@ -85,7 +131,7 @@ const DownloadRoute = HttpRouter.use(
   }),
 )
 
-/** Image generation service and the download route for full-resolution files. */
+/** Image generation and editing service and the download route for full-resolution files. */
 export const Images = Layer.mergeAll(DownloadRoute, ImageGeneration.layer).pipe(
   Layer.provide(OpenCodexImages.layer),
   Layer.provideMerge(ImageStore.layer),

@@ -85,6 +85,16 @@ Les outils sont ensuite disponibles dans les conversations où le connecteur est
 reçoit un aperçu JPEG de l'image et un lien vers le PNG original, valable pendant
 `MCP_IMAGE_RETENTION`.
 
+`generate_image` crée une image à partir d'un texte. `edit_image` reçoit le lien d'une image déjà
+produite par le connecteur et une consigne de modification ; le hub la transmet à
+`/v1/images/edits`, qui conserve les dimensions, et le connecteur renvoie un nouveau lien sans
+effacer l'original. Les limites par rapport à la retouche dans ChatGPT :
+
+- une image envoyée dans la conversation Claude n'est pas accessible à l'outil, et le connecteur ne
+  télécharge aucune autre URL, pour ne pas servir de relais vers le réseau privé ;
+- il n'y a ni masque ni sélection de zone : la consigne décrit ce qui change et ce qui reste ;
+- Claude ne voit que l'aperçu JPEG ; l'édition part toujours du PNG complet stocké.
+
 ## Vérifier un déploiement
 
 ```bash
