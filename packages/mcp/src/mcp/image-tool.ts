@@ -1,9 +1,9 @@
-import { Context, Effect, Schema } from "effect"
-import { McpSchema, McpServer } from "effect/ai"
+import { Effect } from "effect"
+import { McpSchema } from "effect/ai"
 
 import type { GeneratedImage, ImageGenerationError } from "../images/index.ts"
-
-type ToolInput = Schema.ConstraintCodec<unknown, unknown, never, unknown>
+import { registerTool } from "./tool.ts"
+import type { ToolInput } from "./tool.ts"
 
 interface ImageToolOptions<Input extends ToolInput> {
   readonly name: string
@@ -36,39 +36,19 @@ const toolError = ({ message }: ImageGenerationError) =>
   )
 
 /**
- * Registers a tool that produces an image. Its result is the preview itself plus a link to the
- * full PNG; refusals from the hub become tool errors Claude can explain to the user.
+ * Registers a tool that produces an image through ChatGPT. Its result is the preview itself plus
+ * a link to the full PNG; refusals from the hub become tool errors Claude can explain.
  */
-export const registerImageTool = Effect.fn("registerImageTool")(function* <Input extends ToolInput>(
-  options: ImageToolOptions<Input>,
-) {
-  const server = yield* McpServer.McpServer
-  const decodeInput = Schema.decodeUnknownEffect(options.input, { onExcessProperty: "error" })
-  const inputSchema = yield* Schema.decodeUnknownEffect(McpSchema.ToolJson)(
-    Schema.toJsonSchemaDocument(options.input, { onExcessProperty: "error" }).schema,
-  ).pipe(Effect.orDie)
-
-  yield* server.addTool({
-    tool: new McpSchema.Tool({
-      name: options.name,
-      title: options.title,
-      description: options.description,
-      inputSchema,
-      annotations: {
-        title: options.title,
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: true,
-      },
-    }),
-    annotations: Context.empty(),
-    handle: (payload) =>
-      decodeInput(payload).pipe(
-        Effect.mapError((error) => new McpSchema.InvalidParams({ message: error.message })),
-        Effect.flatMap(options.run),
+export const registerImageTool = <Input extends ToolInput>(options: ImageToolOptions<Input>) =>
+  registerTool({
+    name: options.name,
+    title: options.title,
+    description: options.description,
+    input: options.input,
+    readOnly: false,
+    run: (input) =>
+      options.run(input).pipe(
         Effect.map((image) => toolResult(options.outcome, image)),
         Effect.catchTag("ImageGenerationError", toolError),
       ),
   })
-})

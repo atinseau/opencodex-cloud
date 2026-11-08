@@ -23,6 +23,10 @@
   peut télécharger l'image jusqu'à sa suppression, après `MCP_IMAGE_RETENTION`.
 - `edit_image` n'accepte que les liens produits par le connecteur et lit l'image sur son propre
   disque. Il ne fait jamais de requête vers une URL fournie par Claude.
+- Les liens d'envoi sont signés en HMAC-SHA256 avec une clé tirée au démarrage, gardée en mémoire :
+  ils expirent au bout d'une heure, ne servent qu'une fois et un redémarrage les invalide. La page
+  interdit le référent, le cache et l'affichage dans un cadre, n'exécute aucun script et limite les
+  envois à 25 Mo et 60 mégapixels. Toute image envoyée est décodée puis réencodée en PNG.
 - Toute personne qui connaît le secret client peut générer des images sur le compte ChatGPT du hub.
 
 ## Conteneurs

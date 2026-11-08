@@ -2,13 +2,16 @@ import { Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/http"
 
 import { publicEndpoint } from "../config.ts"
-import type { PublicEndpoint } from "../config.ts"
 import { ImageGenerationError } from "./errors.ts"
+import { imageUrl, storedIdOf } from "./links.ts"
 import { OpenCodexImages } from "./opencodex.ts"
 import { previewOf } from "./preview.ts"
 import { ImageStore } from "./store.ts"
+import { ImageUploads, UploadRoutes } from "./upload.ts"
 
 export { ImageGenerationError } from "./errors.ts"
+export { ImageUploads } from "./upload.ts"
+export type { UploadRequest } from "./upload.ts"
 
 export interface GeneratedImage {
   readonly preview: Uint8Array
@@ -23,22 +26,9 @@ const retentionLabel = (retention: Duration.Duration): string => {
   return Number.isInteger(days) ? `${days} day${days === 1 ? "" : "s"}` : Duration.format(retention)
 }
 
-const STORED_FILE = /^([\w-]{43})(?:\.png)?$/u
-
-/**
- * Image id behind a download link this connector produced, or behind its bare file name. Any
- * other URL resolves to nothing: the connector never fetches images from elsewhere.
- */
-const storedIdOf = (endpoint: PublicEndpoint, reference: string): Option.Option<string> => {
-  const trimmed = reference.trim()
-  const prefix = `${endpoint.url}/images/`
-  const file = trimmed.startsWith(prefix) ? trimmed.slice(prefix.length) : trimmed
-  return Option.fromNullishOr(STORED_FILE.exec(file)?.[1])
-}
-
 const unknownSource = new ImageGenerationError({
   message:
-    "This image is unknown or has expired. edit_image only accepts the full-resolution link returned by generate_image or edit_image.",
+    "This image is unknown or has expired. edit_image only accepts image links returned by generate_image, edit_image or request_image_upload. A link from request_image_upload only works once the user has finished the upload.",
 })
 
 /**
@@ -71,7 +61,7 @@ export class ImageGeneration extends Context.Service<
           preview: preview.jpeg,
           width: preview.width,
           height: preview.height,
-          downloadUrl: `${endpoint.url}/images/${id}.png`,
+          downloadUrl: imageUrl(endpoint, id),
           retainedFor: retentionLabel(store.retention),
         }
       })
@@ -131,8 +121,12 @@ const DownloadRoute = HttpRouter.use(
   }),
 )
 
-/** Image generation and editing service and the download route for full-resolution files. */
-export const Images = Layer.mergeAll(DownloadRoute, ImageGeneration.layer).pipe(
-  Layer.provide(OpenCodexImages.layer),
-  Layer.provideMerge(ImageStore.layer),
-)
+/**
+ * Image generation, editing and upload services, with the download route for full-resolution
+ * files and the upload page.
+ */
+export const Images = Layer.mergeAll(
+  DownloadRoute,
+  ImageGeneration.layer,
+  UploadRoutes.pipe(Layer.provideMerge(ImageUploads.layer)),
+).pipe(Layer.provide(OpenCodexImages.layer), Layer.provideMerge(ImageStore.layer))

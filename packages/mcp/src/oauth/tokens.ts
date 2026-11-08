@@ -1,7 +1,7 @@
 import { Clock, Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect"
 import * as Base64Url from "effect/encoding/Base64Url"
 
-import { constantTimeEqual, hmacSha256 } from "./crypto.ts"
+import { constantTimeEqual, hmacSha256 } from "../crypto.ts"
 import { OAuthSettings } from "./settings.ts"
 
 const ACCESS_TOKEN_SECONDS = 60 * 60

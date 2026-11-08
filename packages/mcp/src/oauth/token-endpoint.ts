@@ -2,8 +2,9 @@ import { Effect, Option, Redacted, Result, Schema } from "effect"
 import * as Base64 from "effect/encoding/Base64"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 
+import { constantTimeEqual } from "../crypto.ts"
 import type { AuthorizationCodes } from "./codes.ts"
-import { constantTimeEqual, pkceChallenge } from "./crypto.ts"
+import { pkceChallenge } from "./crypto.ts"
 import type { OAuthSettings } from "./settings.ts"
 import type { TokenPair, Tokens } from "./tokens.ts"
 
