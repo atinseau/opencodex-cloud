@@ -45,3 +45,9 @@ export const registerTool = Effect.fn("registerTool")(function* <Input extends T
       ),
   })
 })
+
+/** A refusal Claude can explain to the user, such as an unknown image or a hub error. */
+export const toolError = ({ message }: { readonly message: string }) =>
+  Effect.succeed(
+    new McpSchema.CallToolResult({ isError: true, content: [{ type: "text", text: message }] }),
+  )

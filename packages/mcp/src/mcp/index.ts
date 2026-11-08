@@ -6,12 +6,14 @@ import { registerEditImage } from "./edit-image.ts"
 import { registerGenerateImage } from "./generate-image.ts"
 import { McpRequestLog } from "./request-log.ts"
 import { registerRequestImageUpload } from "./request-upload.ts"
+import { registerViewImage } from "./view-image.ts"
 
 /** Tools, registered one after the other so Claude lists them in this order. */
 const Tools = Layer.effectDiscard(
-  Effect.all([registerGenerateImage, registerEditImage, registerRequestImageUpload], {
-    discard: true,
-  }),
+  Effect.all(
+    [registerGenerateImage, registerEditImage, registerViewImage, registerRequestImageUpload],
+    { discard: true },
+  ),
 )
 
 /**
@@ -26,7 +28,7 @@ const Server = Tools.pipe(
         const { path } = yield* publicEndpoint
         return McpServer.layerHttp({
           name: "opencodex-cloud",
-          version: "0.4.0",
+          version: "0.5.0",
           description: "Image generation and editing through a self-hosted OpenCodex hub",
           path,
           protocols: [

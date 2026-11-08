@@ -92,13 +92,20 @@ première image est celle qu'on modifie : le résultat garde ses dimensions et s
 suivantes servent de références, que la consigne désigne par leur position (« le chat de la
 deuxième image »). Chaque image voyage en PNG base64 : deux images font une requête d'environ 9 Mo.
 
+`view_image` montre à Claude les images derrière un à quatre liens, sans appeler ChatGPT. Claude
+s'en sert avant de retoucher une image qu'il n'a pas encore vue (un lien collé, une image d'une
+autre conversation ou un envoi), pour que sa consigne colle au contenu et au style. Les aperçus
+JPEG d'un même appel se partagent environ 90 Ko, pour rester sous la limite de taille des résultats
+d'outil de Claude : une image s'affiche jusqu'à 1024 pixels de côté, quatre images vers 384.
+
 Claude ne peut pas transmettre à un outil une image jointe à la conversation. Pour retoucher une
 image de l'utilisateur, il appelle `request_image_upload`, qui renvoie deux liens : une page
 d'envoi (`<endpoint>/upload/<jeton>`) à donner à l'utilisateur, et le lien que l'image aura une
-fois envoyée. L'utilisateur y dépose l'image, prévient Claude, et Claude appelle `edit_image`
-avec ce lien. La page accepte le JPEG, le PNG, le WebP et le GIF jusqu'à 25 Mo ; le HEIC, l'AVIF
-et le TIFF sont refusés, faute de codec dans l'image Linux. L'image est réorientée selon ses
-données EXIF, réduite à 2048 pixels de côté et stockée en PNG comme les images générées.
+fois envoyée. L'utilisateur y dépose l'image et prévient Claude, qui la regarde avec `view_image`
+puis appelle `edit_image` avec ce lien. La page accepte le JPEG, le PNG, le WebP et le GIF jusqu'à
+25 Mo ; le HEIC, l'AVIF et le TIFF sont refusés, faute de codec dans l'image Linux. L'image est
+réorientée selon ses données EXIF, réduite à 2048 pixels de côté et stockée en PNG comme les
+images générées.
 
 Les limites par rapport à la retouche dans ChatGPT :
 

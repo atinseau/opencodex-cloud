@@ -50,7 +50,7 @@ test("accepts the sessionless 2026-07-28 discovery that Claude sends first", asy
     })),
   )
   expect(version).toBe("2026-07-28")
-  expect(tools).toEqual(["generate_image", "edit_image", "request_image_upload"])
+  expect(tools).toEqual(["generate_image", "edit_image", "view_image", "request_image_upload"])
 })
 
 test("generates an image without a session", async () => {
