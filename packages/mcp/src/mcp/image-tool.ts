@@ -1,9 +1,15 @@
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { McpSchema } from "effect/ai"
 
+import { MAX_IMAGES_PER_CALL } from "../images/index.ts"
 import type { GeneratedImage, ImageGenerationError } from "../images/index.ts"
-import { registerTool } from "./tool.ts"
+import { registerTool, toolError } from "./tool.ts"
 import type { ToolInput } from "./tool.ts"
+
+/** 1 to `MAX_IMAGES_PER_CALL` links to images stored by this connector. */
+export const ImageLinks = Schema.Array(
+  Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(2000)),
+).check(Schema.isMinLength(1), Schema.isMaxLength(MAX_IMAGES_PER_CALL))
 
 interface ImageToolOptions<Input extends ToolInput> {
   readonly name: string
@@ -29,11 +35,6 @@ const toolResult = (outcome: string, image: GeneratedImage) =>
       { type: "text", text: describe(outcome, image) },
     ],
   })
-
-const toolError = ({ message }: ImageGenerationError) =>
-  Effect.succeed(
-    new McpSchema.CallToolResult({ isError: true, content: [{ type: "text", text: message }] }),
-  )
 
 /**
  * Registers a tool that produces an image through ChatGPT. Its result is the preview itself plus

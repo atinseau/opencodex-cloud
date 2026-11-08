@@ -1,113 +1,17 @@
-import { Context, Duration, Effect, Layer, Option, Schema } from "effect"
+import { Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/http"
 
 import { publicEndpoint } from "../config.ts"
-import { ImageGenerationError } from "./errors.ts"
-import { imageUrl, storedIdOf } from "./links.ts"
+import { ImageGeneration } from "./generation.ts"
 import { OpenCodexImages } from "./opencodex.ts"
-import { previewOf } from "./preview.ts"
 import { ImageStore } from "./store.ts"
 import { ImageUploads, UploadRoutes } from "./upload.ts"
 
 export { ImageGenerationError } from "./errors.ts"
+export { ImageGeneration, MAX_IMAGES_PER_CALL } from "./generation.ts"
+export type { GeneratedImage, ImagePreview } from "./generation.ts"
 export { ImageUploads } from "./upload.ts"
 export type { UploadRequest } from "./upload.ts"
-
-export interface GeneratedImage {
-  readonly preview: Uint8Array
-  readonly width: number
-  readonly height: number
-  readonly downloadUrl: string
-  readonly retainedFor: string
-}
-
-/** Images one edit can combine. Each travels to the hub as a base64 PNG of up to a few MB. */
-export const MAX_IMAGES_PER_EDIT = 4
-
-const retentionLabel = (retention: Duration.Duration): string => {
-  const days = Duration.toDays(retention)
-  return Number.isInteger(days) ? `${days} day${days === 1 ? "" : "s"}` : Duration.format(retention)
-}
-
-const unknownSource = (source: string) =>
-  new ImageGenerationError({
-    message: `This image is unknown or has expired: ${source.slice(0, 200)}. edit_image only accepts image links returned by generate_image, edit_image or request_image_upload. A link from request_image_upload only works once the user has finished the upload.`,
-  })
-
-const tooManySources = new ImageGenerationError({
-  message: `Pass between 1 and ${MAX_IMAGES_PER_EDIT} image links.`,
-})
-
-/**
- * Creates and edits images through the hub. Every result keeps its full PNG on disk and comes
- * with a preview small enough for Claude.
- */
-export class ImageGeneration extends Context.Service<
-  ImageGeneration,
-  {
-    create(prompt: string): Effect.Effect<GeneratedImage, ImageGenerationError>
-    /**
-     * Edits the first stored image, identified by its download link, using the others as
-     * references.
-     */
-    edit(
-      sources: ReadonlyArray<string>,
-      prompt: string,
-    ): Effect.Effect<GeneratedImage, ImageGenerationError>
-  }
->()("opencodex-cloud/mcp/images/ImageGeneration") {
-  static readonly layer = Layer.effect(
-    ImageGeneration,
-    Effect.gen(function* () {
-      const endpoint = yield* publicEndpoint
-      const upstream = yield* OpenCodexImages
-      const store = yield* ImageStore
-
-      const publish = Effect.fn("ImageGeneration.publish")(function* (png: Uint8Array) {
-        const preview = yield* previewOf(png).pipe(
-          Effect.mapError(
-            () => new ImageGenerationError({ message: "The generated image is unreadable." }),
-          ),
-        )
-        const id = yield* store.save(png)
-        return {
-          preview: preview.jpeg,
-          width: preview.width,
-          height: preview.height,
-          downloadUrl: imageUrl(endpoint, id),
-          retainedFor: retentionLabel(store.retention),
-        }
-      })
-
-      const stored = Effect.fn("ImageGeneration.stored")(function* (source: string) {
-        const png = yield* Option.match(storedIdOf(endpoint, source), {
-          onNone: () => Effect.succeed(Option.none<Uint8Array>()),
-          onSome: (id) => store.read(id),
-        })
-        if (Option.isNone(png)) {
-          return yield* unknownSource(source)
-        }
-        return png.value
-      })
-
-      return ImageGeneration.of({
-        create: Effect.fn("ImageGeneration.create")(function* (prompt: string) {
-          return yield* publish(yield* upstream.generate(prompt))
-        }),
-        edit: Effect.fn("ImageGeneration.edit")(function* (
-          sources: ReadonlyArray<string>,
-          prompt: string,
-        ) {
-          if (sources.length === 0 || sources.length > MAX_IMAGES_PER_EDIT) {
-            return yield* tooManySources
-          }
-          const originals = yield* Effect.forEach(sources, stored)
-          return yield* publish(yield* upstream.edit(prompt, originals))
-        }),
-      })
-    }),
-  )
-}
 
 const ImageFile = Schema.Struct({
   file: Schema.String.check(Schema.isPattern(/^[\w-]{43}\.png$/u)),
@@ -141,8 +45,8 @@ const DownloadRoute = HttpRouter.use(
 )
 
 /**
- * Image generation, editing and upload services, with the download route for full-resolution
- * files and the upload page.
+ * Image generation, editing, preview and upload services, with the download route for
+ * full-resolution files and the upload page.
  */
 export const Images = Layer.mergeAll(
   DownloadRoute,

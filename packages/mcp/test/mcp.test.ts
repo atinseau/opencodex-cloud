@@ -31,6 +31,11 @@ test("lists the image tools with strict input schemas", async () => {
     tools: [
       { name: "generate_image", inputSchema: strict("prompt") },
       { name: "edit_image", inputSchema: strict("image_urls", "prompt") },
+      {
+        name: "view_image",
+        inputSchema: strict("image_urls"),
+        annotations: { readOnlyHint: true },
+      },
       { name: "request_image_upload", annotations: { readOnlyHint: true } },
     ],
   })
