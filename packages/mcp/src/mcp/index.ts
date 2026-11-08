@@ -26,7 +26,7 @@ const Server = Tools.pipe(
         const { path } = yield* publicEndpoint
         return McpServer.layerHttp({
           name: "opencodex-cloud",
-          version: "0.3.0",
+          version: "0.4.0",
           description: "Image generation and editing through a self-hosted OpenCodex hub",
           path,
           protocols: [
