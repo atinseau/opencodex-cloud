@@ -35,7 +35,7 @@ const requestUpload = async () => {
   const text = result.content[0]?.text ?? ""
   return {
     uploadUrl: /Upload link for the user: (\S+)/u.exec(text)?.[1] ?? "",
-    imageUrl: /image_url (\S+\.png)/u.exec(text)?.[1] ?? "",
+    imageUrl: /image_urls: (\S+\.png)/u.exec(text)?.[1] ?? "",
   }
 }
 
@@ -48,7 +48,7 @@ const upload = (url: string, file: Blob) => {
 }
 
 const editImage = (imageUrl: string) =>
-  session.callTool("edit_image", { image_url: imageUrl, prompt: "make it green" })
+  session.callTool("edit_image", { image_urls: [imageUrl], prompt: "make it green" })
 
 test("an uploaded photo becomes a PNG that edit_image can modify", async () => {
   const { uploadUrl, imageUrl } = await requestUpload()

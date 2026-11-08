@@ -19,9 +19,9 @@ de modèles, et place tout l'état dans le volume `/var/lib/opencodex`.
 
 Le connecteur tourne dans un conteneur séparé et parle au hub par le réseau Docker privé de Coolify.
 Il propose trois outils. `generate_image` crée une image à partir d'un texte et `edit_image` modifie
-une image à partir de son lien ; les deux renvoient un aperçu à Claude et un lien vers le PNG
-complet. `request_image_upload` donne à l'utilisateur un lien d'envoi à usage unique, pour retoucher
-une de ses propres images.
+une image, ou en combine jusqu'à quatre, à partir de leurs liens ; les deux renvoient un aperçu à
+Claude et un lien vers le PNG complet. `request_image_upload` donne à l'utilisateur un lien d'envoi
+à usage unique, pour retoucher une de ses propres images.
 Le choix est expliqué dans [ADR 0001](docs/adr/0001-mcp-companion-container.md).
 
 ## Développement

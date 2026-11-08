@@ -58,8 +58,14 @@ export class OpenCodexImages extends Context.Service<
   OpenCodexImages,
   {
     generate(prompt: string): Effect.Effect<Uint8Array, ImageGenerationError>
-    /** Applies the prompt to a PNG. The hub keeps the source dimensions. */
-    edit(prompt: string, png: Uint8Array): Effect.Effect<Uint8Array, ImageGenerationError>
+    /**
+     * Applies the prompt to the first PNG, which keeps its dimensions; the other PNGs are
+     * references the prompt can draw from.
+     */
+    edit(
+      prompt: string,
+      pngs: ReadonlyArray<Uint8Array>,
+    ): Effect.Effect<Uint8Array, ImageGenerationError>
   }
 >()("opencodex-cloud/mcp/images/OpenCodexImages") {
   static readonly layer = Layer.effect(
@@ -75,10 +81,12 @@ export class OpenCodexImages extends Context.Service<
 
       return OpenCodexImages.of({
         generate: (prompt) => relay(client, "/v1/images/generations", { prompt }),
-        edit: (prompt, png) =>
+        edit: (prompt, pngs) =>
           relay(client, "/v1/images/edits", {
             prompt,
-            images: [{ image_url: `data:image/png;base64,${Base64.encode(png)}` }],
+            images: pngs.map((png) => ({
+              image_url: `data:image/png;base64,${Base64.encode(png)}`,
+            })),
           }),
       })
     }),

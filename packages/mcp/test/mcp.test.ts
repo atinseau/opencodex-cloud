@@ -30,7 +30,7 @@ test("lists the image tools with strict input schemas", async () => {
   expect(result).toMatchObject({
     tools: [
       { name: "generate_image", inputSchema: strict("prompt") },
-      { name: "edit_image", inputSchema: strict("image_url", "prompt") },
+      { name: "edit_image", inputSchema: strict("image_urls", "prompt") },
       { name: "request_image_upload", annotations: { readOnlyHint: true } },
     ],
   })

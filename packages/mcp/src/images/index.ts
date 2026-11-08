@@ -21,14 +21,21 @@ export interface GeneratedImage {
   readonly retainedFor: string
 }
 
+/** Images one edit can combine. Each travels to the hub as a base64 PNG of up to a few MB. */
+export const MAX_IMAGES_PER_EDIT = 4
+
 const retentionLabel = (retention: Duration.Duration): string => {
   const days = Duration.toDays(retention)
   return Number.isInteger(days) ? `${days} day${days === 1 ? "" : "s"}` : Duration.format(retention)
 }
 
-const unknownSource = new ImageGenerationError({
-  message:
-    "This image is unknown or has expired. edit_image only accepts image links returned by generate_image, edit_image or request_image_upload. A link from request_image_upload only works once the user has finished the upload.",
+const unknownSource = (source: string) =>
+  new ImageGenerationError({
+    message: `This image is unknown or has expired: ${source.slice(0, 200)}. edit_image only accepts image links returned by generate_image, edit_image or request_image_upload. A link from request_image_upload only works once the user has finished the upload.`,
+  })
+
+const tooManySources = new ImageGenerationError({
+  message: `Pass between 1 and ${MAX_IMAGES_PER_EDIT} image links.`,
 })
 
 /**
@@ -39,8 +46,14 @@ export class ImageGeneration extends Context.Service<
   ImageGeneration,
   {
     create(prompt: string): Effect.Effect<GeneratedImage, ImageGenerationError>
-    /** Edits an image this connector produced, identified by its download link. */
-    edit(source: string, prompt: string): Effect.Effect<GeneratedImage, ImageGenerationError>
+    /**
+     * Edits the first stored image, identified by its download link, using the others as
+     * references.
+     */
+    edit(
+      sources: ReadonlyArray<string>,
+      prompt: string,
+    ): Effect.Effect<GeneratedImage, ImageGenerationError>
   }
 >()("opencodex-cloud/mcp/images/ImageGeneration") {
   static readonly layer = Layer.effect(
@@ -72,7 +85,7 @@ export class ImageGeneration extends Context.Service<
           onSome: (id) => store.read(id),
         })
         if (Option.isNone(png)) {
-          return yield* unknownSource
+          return yield* unknownSource(source)
         }
         return png.value
       })
@@ -81,9 +94,15 @@ export class ImageGeneration extends Context.Service<
         create: Effect.fn("ImageGeneration.create")(function* (prompt: string) {
           return yield* publish(yield* upstream.generate(prompt))
         }),
-        edit: Effect.fn("ImageGeneration.edit")(function* (source: string, prompt: string) {
-          const original = yield* stored(source)
-          return yield* publish(yield* upstream.edit(prompt, original))
+        edit: Effect.fn("ImageGeneration.edit")(function* (
+          sources: ReadonlyArray<string>,
+          prompt: string,
+        ) {
+          if (sources.length === 0 || sources.length > MAX_IMAGES_PER_EDIT) {
+            return yield* tooManySources
+          }
+          const originals = yield* Effect.forEach(sources, stored)
+          return yield* publish(yield* upstream.edit(prompt, originals))
         }),
       })
     }),

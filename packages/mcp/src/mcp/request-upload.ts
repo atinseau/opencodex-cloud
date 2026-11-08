@@ -12,7 +12,8 @@ const describe = (upload: UploadRequest) =>
   [
     `Upload link for the user: ${upload.uploadUrl}`,
     `It works once and expires in ${upload.expiresIn}. Give it to the user and ask them to upload the image there, then wait for them to confirm.`,
-    `Once they confirm, call edit_image with image_url ${upload.imageUrl}. Until the upload is done, edit_image reports that image as unknown.`,
+    `Once they confirm, pass this link to edit_image in image_urls: ${upload.imageUrl}`,
+    "Until the upload is done, edit_image reports that image as unknown.",
   ].join("\n")
 
 /** Registers `request_image_upload`, which brings an image from the user's device to edit_image. */

@@ -85,10 +85,12 @@ Les outils sont ensuite disponibles dans les conversations où le connecteur est
 reçoit un aperçu JPEG de l'image et un lien vers le PNG original, valable pendant
 `MCP_IMAGE_RETENTION`.
 
-`generate_image` crée une image à partir d'un texte. `edit_image` reçoit le lien d'une image déjà
-stockée par le connecteur et une consigne de modification ; le hub la transmet à
-`/v1/images/edits`, qui conserve les dimensions, et le connecteur renvoie un nouveau lien sans
-effacer l'original.
+`generate_image` crée une image à partir d'un texte. `edit_image` reçoit de un à quatre liens
+d'images déjà stockées par le connecteur et une consigne de modification ; le hub les transmet à
+`/v1/images/edits`, et le connecteur renvoie un nouveau lien sans effacer les originaux. La
+première image est celle qu'on modifie : le résultat garde ses dimensions et son cadrage. Les
+suivantes servent de références, que la consigne désigne par leur position (« le chat de la
+deuxième image »). Chaque image voyage en PNG base64 : deux images font une requête d'environ 9 Mo.
 
 Claude ne peut pas transmettre à un outil une image jointe à la conversation. Pour retoucher une
 image de l'utilisateur, il appelle `request_image_upload`, qui renvoie deux liens : une page
