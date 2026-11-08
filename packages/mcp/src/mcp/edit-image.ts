@@ -6,7 +6,7 @@ import { registerImageTool } from "./image-tool.ts"
 const Input = Schema.Struct({
   image_url: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(2000)).annotate({
     description:
-      "Full-resolution PNG link returned by an earlier generate_image or edit_image result, copied exactly.",
+      "Image link returned by generate_image, edit_image or request_image_upload, copied exactly.",
   }),
   prompt: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(4000)).annotate({
     description:
@@ -21,7 +21,7 @@ export const registerEditImage = Effect.gen(function* () {
     name: "edit_image",
     title: "Edit image",
     description:
-      "Modify an image created earlier in this conversation by generate_image or edit_image, with the ChatGPT image model connected to OpenCodex. Pass the full-resolution link from that result and describe the change; the model keeps the rest of the image and its size. Images uploaded to the conversation and other web links are not supported. Returns a preview and a link to a new full-resolution PNG; the original link stays valid.",
+      "Modify an image with the ChatGPT image model connected to OpenCodex. The image must come from generate_image, edit_image or request_image_upload: pass the image link from that result and describe the change; the model keeps the rest of the image. Images attached to the conversation cannot be passed directly, call request_image_upload first. Returns a preview and a link to a new full-resolution PNG; the original link stays valid.",
     input: Input,
     outcome: "Edited the image.",
     run: ({ image_url: source, prompt }) => images.edit(source, prompt),

@@ -6,7 +6,11 @@ import { App } from "./app.ts"
 
 const Server = HttpRouter.serve(App).pipe(
   Layer.provide(
-    BunHttpServer.layerConfig({ port: Config.Port("PORT").pipe(Config.withDefault(8080)) }),
+    BunHttpServer.layerConfig({
+      port: Config.Port("PORT").pipe(Config.withDefault(8080)),
+      // Image uploads are capped at 25 MB; nothing else comes close.
+      maxRequestBodySize: Config.succeed(30 * 1024 * 1024),
+    }),
   ),
   Layer.provide(Layer.mergeAll(FetchHttpClient.layer, BunServices.layer)),
 )

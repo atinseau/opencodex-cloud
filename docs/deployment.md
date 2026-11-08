@@ -86,12 +86,22 @@ reçoit un aperçu JPEG de l'image et un lien vers le PNG original, valable pend
 `MCP_IMAGE_RETENTION`.
 
 `generate_image` crée une image à partir d'un texte. `edit_image` reçoit le lien d'une image déjà
-produite par le connecteur et une consigne de modification ; le hub la transmet à
+stockée par le connecteur et une consigne de modification ; le hub la transmet à
 `/v1/images/edits`, qui conserve les dimensions, et le connecteur renvoie un nouveau lien sans
-effacer l'original. Les limites par rapport à la retouche dans ChatGPT :
+effacer l'original.
 
-- une image envoyée dans la conversation Claude n'est pas accessible à l'outil, et le connecteur ne
-  télécharge aucune autre URL, pour ne pas servir de relais vers le réseau privé ;
+Claude ne peut pas transmettre à un outil une image jointe à la conversation. Pour retoucher une
+image de l'utilisateur, il appelle `request_image_upload`, qui renvoie deux liens : une page
+d'envoi (`<endpoint>/upload/<jeton>`) à donner à l'utilisateur, et le lien que l'image aura une
+fois envoyée. L'utilisateur y dépose l'image, prévient Claude, et Claude appelle `edit_image`
+avec ce lien. La page accepte le JPEG, le PNG, le WebP et le GIF jusqu'à 25 Mo ; le HEIC, l'AVIF
+et le TIFF sont refusés, faute de codec dans l'image Linux. L'image est réorientée selon ses
+données EXIF, réduite à 2048 pixels de côté et stockée en PNG comme les images générées.
+
+Les limites par rapport à la retouche dans ChatGPT :
+
+- une image jointe dans Claude doit repasser par la page d'envoi ; le connecteur ne télécharge
+  aucune URL, pour ne pas servir de relais vers le réseau privé ;
 - il n'y a ni masque ni sélection de zone : la consigne décrit ce qui change et ce qui reste ;
 - Claude ne voit que l'aperçu JPEG ; l'édition part toujours du PNG complet stocké.
 
