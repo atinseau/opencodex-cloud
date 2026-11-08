@@ -21,6 +21,8 @@
   jetons d'un coup.
 - Les liens d'images contiennent un identifiant aléatoire de 256 bits : quiconque possède le lien
   peut télécharger l'image jusqu'à sa suppression, après `MCP_IMAGE_RETENTION`.
+- `edit_image` n'accepte que les liens produits par le connecteur et lit l'image sur son propre
+  disque. Il ne fait jamais de requête vers une URL fournie par Claude.
 - Toute personne qui connaît le secret client peut générer des images sur le compte ChatGPT du hub.
 
 ## Conteneurs
